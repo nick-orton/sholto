@@ -1,31 +1,41 @@
-# Working on Ichor
+# CLAUDE.md
 
-## Every change goes through a branch and a pull request
+Sholto is an Android boxing-training app (Kotlin, Jetpack Compose). See
+[DESIGN.md](DESIGN.md) for what it does and [PLAN.md](PLAN.md) for the
+milestone build plan.
 
-Never commit to `main`. For any change, however small:
+## Git workflow: gitflow
 
-1. **Start from an up-to-date `main`:** `git switch main && git pull --ff-only`.
-2. **Make a branch** named for the change, short and kebab-case (`new-feature-foo`,
-   `fix-bar-baz`). If the working tree already has someone else's uncommitted
-   changes, leave them alone: commit only the files for this change.
-3. **Make the change on the branch**, with tests. Run the full suite
-4. **Commit on the branch** once the change works and the tests pass; no need to wait
-   to be asked. Name each file you add; never `git add -A` or `git add .`.
-5. **Push the branch and open a PR** against `main` with `gh pr create`, and give the
-   user its link. The description says what was wrong, what changes and how it was
-   tested. Follow-up fixes for the same change go on the same branch and PR.
-6. **Merge only when the user says so**, with `gh pr merge <n> --merge` (merge commits,
-   like the PRs before). Then `git switch main && git pull --ff-only` and delete the
-   local branch.
+This repo uses **gitflow**.
 
-A hook in `.claude/settings.json` refuses `git commit`, `merge`, `cherry-pick` and
-`revert` on `main`, and any push to `main`. If it fires, make a branch and carry on there.
+### Branches
+- `main`: released code only. Never commit to it directly.
+- `develop`: the integration branch. All feature work merges here.
+- `feature/<short-name>`: branched from `develop`, PR back into `develop`.
+  For milestones from PLAN.md, use `feature/m<N>-<short-name>`, e.g.
+  `feature/m1-round-engine`.
+- `release/<version>`: branched from `develop` when preparing a release.
+  Only fixes go on it. PR into `main`, then merge `main` back into `develop`.
+- `hotfix/<version>`: branched from `main` for urgent fixes. PR into `main`,
+  then merge `main` back into `develop`.
 
-## Working from a GitHub issue
+If `develop` doesn't exist, create it from `main` and push it.
 
-When the change addresses a GitHub issue, read the issue and its comments first
-(`gh issue view <n> --comments`), then, before writing any code, post a comment on the
-issue saying the approach you're going to take: what you understand the problem to be,
-what you plan to change and where, and anything you're unsure of or leaving out
-(`gh issue comment <n> --body-file <file>`). Keep it short. If the plan changes a lot
-along the way, add another comment saying so. Put `Closes #<n>` in the PR description.
+### Commits and PRs: do these without asking
+- **Commit without asking** whenever a logical unit of work is done and
+  builds. Use small, focused commits with a clear message: a short summary
+  line, a blank line, then the reason if it's not obvious.
+- **Push and open PRs without asking** when a feature, milestone, release
+  or hotfix is ready. Target the base branch gitflow calls for (usually
+  `develop`). The PR description should give a summary, list what was tested,
+  and link the PLAN.md milestone if there is one.
+- If you're on `main` or `develop`, create the right branch before
+  committing.
+
+### Merging: always ask first
+- **Never merge a PR without the user's explicit approval** in chat, even
+  if CI is green. Ask, then wait for a yes.
+- Never enable auto-merge, force-push to `main` or `develop`, or delete
+  `main`/`develop`.
+- After a release or hotfix PR is merged into `main` (with approval), ask
+  before tagging the release and before merging `main` back into `develop`.
