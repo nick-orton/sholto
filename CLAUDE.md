@@ -4,38 +4,48 @@ Sholto is an Android boxing-training app (Kotlin, Jetpack Compose). See
 [DESIGN.md](DESIGN.md) for what it does and [PLAN.md](PLAN.md) for the
 milestone build plan.
 
-## Git workflow: gitflow
-
-This repo uses **gitflow**.
+## Git workflow: gitflow, with milestones released to `main`
 
 ### Branches
-- `main`: released code only. Never commit to it directly.
-- `develop`: the integration branch. All feature work merges here.
-- `feature/<short-name>`: branched from `develop`, PR back into `develop`.
-  For milestones from PLAN.md, use `feature/m<N>-<short-name>`, e.g.
-  `feature/m1-round-engine`.
-- `release/<version>`: branched from `develop` when preparing a release.
-  Only fixes go on it. PR into `main`, then merge `main` back into `develop`.
-- `hotfix/<version>`: branched from `main` for urgent fixes. PR into `main`,
-  then merge `main` back into `develop`.
+- `main`: released code. Each completed milestone lands here. Never commit
+  to it directly.
+- `develop`: the integration branch. It is kept in sync with `main` after
+  every merge.
+- `feature/m<N>-<short-name>`: one branch per PLAN.md milestone, branched
+  from `develop`. Example: `feature/m1-round-engine`.
+- `feature/<short-name>`: small work outside a milestone (docs, tweaks).
+  Branched from `develop`, PR into `develop`. It reaches `main` with the
+  next milestone PR, because milestone branches start from `develop`.
+- `hotfix/<short-name>`: branched from `main` for urgent fixes. PR into
+  `main`.
 
 If `develop` doesn't exist, create it from `main` and push it.
 
-### Commits and PRs: do these without asking
-- **Commit without asking** whenever a logical unit of work is done and
-  builds. Use small, focused commits with a clear message: a short summary
-  line, a blank line, then the reason if it's not obvious.
-- **Push and open PRs without asking** when a feature, milestone, release
-  or hotfix is ready. Target the base branch gitflow calls for (usually
-  `develop`). The PR description should give a summary, list what was tested,
-  and link the PLAN.md milestone if there is one.
+### Finishing a milestone
+When a milestone's "Done when" checks pass:
+1. Commit and push the `feature/m<N>-…` branch.
+2. **Open the PR with base `main`, not `develop`.** Title it
+   `M<N>: <milestone name>`. The description gives a summary, lists what was
+   tested, and links the milestone in PLAN.md.
+3. Ask the user to approve the merge. Wait for an explicit yes.
+4. After merging, **sync `develop` with `main`** without asking: merge
+   `main` into `develop` (fast-forward when possible) and push. The user
+   should never have to merge `develop` into `main` by hand.
+
+The same sync happens after a hotfix PR is merged into `main`.
+
+### Do these without asking
+- **Commit** whenever a logical unit of work is done and builds. Use small,
+  focused commits with a clear message: a short summary line, a blank line,
+  then the reason if it's not obvious.
+- **Push and open PRs** with the base branch from the rules above.
+- **Sync `develop` with `main`** after a PR into `main` is merged.
 - If you're on `main` or `develop`, create the right branch before
   committing.
 
-### Merging: always ask first
+### Always ask first
 - **Never merge a PR without the user's explicit approval** in chat, even
   if CI is green. Ask, then wait for a yes.
+- Ask before tagging a release.
 - Never enable auto-merge, force-push to `main` or `develop`, or delete
   `main`/`develop`.
-- After a release or hotfix PR is merged into `main` (with approval), ask
-  before tagging the release and before merging `main` back into `develop`.
