@@ -1,3 +1,14 @@
 <resources>
     <string name="app_name">Sholto</string>
+    <string name="start">START</string>
+    <string name="pause">Pause</string>
+    <string name="resume">RESUME</string>
+    <string name="end_session">END SESSION</string>
+    <string name="hold_to_end">Or hold anywhere to end</string>
+    <string name="done_title">DONE</string>
+    <string name="ended_title">SESSION ENDED</string>
+    <string name="rounds_completed">Rounds completed</string>
+    <string name="total_time">Total time</string>
+    <string name="again">AGAIN</string>
+    <string name="home">HOME</string>
 </resources>
