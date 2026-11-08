@@ -31,6 +31,20 @@ When a milestone's "Done when" checks pass:
 4. After merging, **sync `develop` with `main`** without asking: merge
    `main` into `develop` (fast-forward when possible) and push. The user
    should never have to merge `develop` into `main` by hand.
+   If `develop` is checked out in another worktree, push `origin/main` to
+   `develop` directly (`git push origin origin/main:refs/heads/develop`,
+   which only works as a fast-forward).
+5. Then **update the local copies** without asking:
+   - `git fetch origin`.
+   - For each local `main` and `develop`: if it's checked out in a worktree
+     (see `git worktree list`), run `git -C <that worktree> merge --ff-only
+     origin/<branch>` when that worktree has no uncommitted changes. If
+     it's not checked out anywhere, run `git branch -f <branch>
+     origin/<branch>`.
+   - Never discard local changes or commits to do this. If a fast-forward
+     isn't possible, tell the user which copy is behind and why.
+   - Tell the user if the main checkout is on a branch other than `main`
+     or `develop`, so they know `git pull` there won't pick up the merge.
 
 The same sync happens after a hotfix PR is merged into `main`.
 
