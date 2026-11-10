@@ -102,14 +102,17 @@ yellow) followed by 1 minute of rest. The cycle repeats:
 | Round start (→ green)    | Single bell ring     |
 | Warning (→ yellow)       | Wood-block clack ×3  |
 | Round end (→ red)        | Triple bell ring     |
-| Last 3 s of rest         | Short beep each sec  |
+| Last 3 s of rest or get ready | Short beep each sec |
 | Session done             | Long bell            |
 
 - Every sound can be switched on or off, and there is a master volume
   separate from media volume.
 - Optional vibration on each phase change.
-- Uses `USAGE_ASSISTANCE_SONIFICATION` audio focus with ducking, so music
-  playing from another app gets quieter instead of stopping.
+- Requests transient audio focus with ducking, so music playing from another
+  app gets quieter instead of stopping. Sounds play on the media stream
+  (`USAGE_MEDIA`, `CONTENT_TYPE_SONIFICATION`): the sonification stream
+  follows the ringer on most phones, so a phone on vibrate would silence the
+  bell.
 
 ### 2.4 Timer settings
 
