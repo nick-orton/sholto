@@ -3,8 +3,10 @@ package com.nickorton.sholto.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.nickorton.sholto.SholtoApplication
 import com.nickorton.sholto.ui.home.HomeScreen
 import com.nickorton.sholto.ui.timer.DoneScreen
 import com.nickorton.sholto.ui.timer.TimerScreen
@@ -17,7 +19,13 @@ import com.nickorton.sholto.ui.timer.formatSummary
  * session state directly. Compose Navigation comes in when more modes do.
  */
 @Composable
-fun SholtoApp(viewModel: TimerViewModel = viewModel { TimerViewModel() }) {
+fun SholtoApp(
+    viewModel: TimerViewModel =
+        viewModel {
+            val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as SholtoApplication
+            TimerViewModel(cuePlayer = app.cuePlayer)
+        },
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     when (val s = state) {
         is TimerUiState.Idle -> {
