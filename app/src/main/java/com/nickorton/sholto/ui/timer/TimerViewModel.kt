@@ -2,6 +2,8 @@ package com.nickorton.sholto.ui.timer
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nickorton.sholto.audio.CuePlanner
+import com.nickorton.sholto.audio.CuePlayer
 import com.nickorton.sholto.engine.Clock
 import com.nickorton.sholto.engine.ElapsedRealtimeClock
 import com.nickorton.sholto.engine.Phase
@@ -51,25 +53,31 @@ sealed interface TimerUiState {
 /**
  * Runs one round-timer session at a time and exposes it as [uiState].
  *
- * While a session runs it polls the engine every [tickMs]. The engine works
- * out the time from the [clock], so a late or missed poll only delays the
- * redraw and never changes the timing.
+ * While a session runs it polls the engine every [tickMs], and also wakes on
+ * every whole second of the countdown. Phase changes and countdown beeps all
+ * fall on whole seconds, so cues go to [cuePlayer] on time rather than up to
+ * a tick late. The engine works out the time from the [clock], so a late or
+ * missed poll only delays the redraw and never changes the timing.
  */
 class TimerViewModel(
     private val config: RoundConfig = RoundConfig(),
     private val clock: Clock = ElapsedRealtimeClock,
+    private val cuePlayer: CuePlayer = CuePlayer.None,
     private val tickMs: Long = 100L,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<TimerUiState>(TimerUiState.Idle(config))
     val uiState: StateFlow<TimerUiState> = _uiState.asStateFlow()
 
     private var engine: RoundEngine? = null
+    private var planner = CuePlanner()
     private var ticker: Job? = null
+    private var phaseTimeLeftMs = 0L
 
     /** Starts a new session from Home or Done. Ignored while one is running. */
     fun start() {
         if (_uiState.value is TimerUiState.Running) return
         engine = RoundEngine(config, clock).also { it.start() }
+        planner = CuePlanner()
         refresh()
         startTicker()
     }
@@ -92,7 +100,8 @@ class TimerViewModel(
     fun end() {
         if (engine?.stop() == true) {
             stopTicker()
-            refresh()
+            // No bell for ending early, even if a boundary had just passed.
+            refresh(playCues = false)
         }
     }
 
@@ -108,7 +117,7 @@ class TimerViewModel(
         ticker =
             viewModelScope.launch {
                 while (isActive) {
-                    delay(tickMs)
+                    delay(nextTickDelayMs())
                     refresh()
                 }
             }
@@ -119,9 +128,20 @@ class TimerViewModel(
         ticker = null
     }
 
-    private fun refresh() {
-        val state = engine?.snapshot() ?: return
+    /** Up to [tickMs], but never past the next whole second of the countdown. */
+    private fun nextTickDelayMs(): Long {
+        val left = phaseTimeLeftMs
+        if (left <= 0L) return tickMs
+        return minOf(tickMs, (left - 1L) % 1000L + 1L)
+    }
+
+    private fun refresh(playCues: Boolean = true) {
+        val engine = engine ?: return
+        val changes = engine.pollEvents()
+        val state = engine.snapshot()
+        phaseTimeLeftMs = state.phaseTimeLeftMs
         _uiState.value = state.toUiState()
+        if (playCues) planner.cuesFor(changes, state).forEach(cuePlayer::play)
         if (state.status == SessionStatus.Finished || state.status == SessionStatus.Stopped) stopTicker()
     }
 

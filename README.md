@@ -49,6 +49,18 @@ Or install a built APK directly (for example one downloaded from a CI run's
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
+## Sounds
+
+The timer sounds in `app/src/main/res/raw` (bells, wood-block clacks and
+beeps) are original: they are synthesized from sine waves and noise by
+[`tools/sounds/generate_sounds.py`](tools/sounds/generate_sounds.py), so no
+third-party credit or license applies. To change one, edit the script and run
+it again (it needs Python 3 and ffmpeg):
+
+```bash
+python3 tools/sounds/generate_sounds.py
+```
+
 ## CI
 
 GitHub Actions runs `spotlessCheck`, `assembleDebug` and `test` on every pull
