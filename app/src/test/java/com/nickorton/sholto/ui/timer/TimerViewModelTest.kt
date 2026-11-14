@@ -1,10 +1,15 @@
 package com.nickorton.sholto.ui.timer
 
+import com.nickorton.sholto.data.TapBehavior
+import com.nickorton.sholto.data.TimerSettings
 import com.nickorton.sholto.engine.Clock
 import com.nickorton.sholto.engine.Phase
 import com.nickorton.sholto.engine.RoundConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.resetMain
@@ -45,7 +50,10 @@ class TimerViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel(c: RoundConfig = config) = TimerViewModel(config = c, clock = clock)
+    private fun viewModel(
+        c: RoundConfig = config,
+        settings: Flow<TimerSettings> = flowOf(TimerSettings(round = c)),
+    ) = TimerViewModel(settings = settings, clock = clock).also { scheduler.runCurrent() }
 
     private fun advance(ms: Long) {
         scheduler.advanceTimeBy(ms)
@@ -206,5 +214,46 @@ class TimerViewModelTest {
         assertEquals(Phase.Work, s.phase)
         assertEquals(13, s.round)
         assertEquals(null, s.totalRounds)
+    }
+
+    @Test
+    fun `changing settings updates Idle and the next session without affecting a running one`() {
+        val updated = config.copy(rounds = 6, roundLengthMs = 60_000L)
+        val flow =
+            MutableStateFlow(
+                TimerSettings(
+                    round = config,
+                    tapBehavior = TapBehavior.Pause,
+                    keepScreenOn = true,
+                ),
+            )
+        val vm = viewModel(settings = flow)
+        assertEquals(TimerUiState.Idle(config), vm.uiState.value)
+
+        vm.start()
+        assertEquals(3, vm.running().totalRounds)
+        assertFalse(vm.running().tapEnds)
+        assertTrue(vm.running().keepScreenOn)
+
+        // Change settings mid-run: running session is untouched.
+        flow.value =
+            TimerSettings(
+                round = updated,
+                tapBehavior = TapBehavior.Stop,
+                keepScreenOn = false,
+            )
+        scheduler.runCurrent()
+        assertEquals(3, vm.running().totalRounds)
+        assertFalse(vm.running().tapEnds)
+
+        // End and go Home: new settings are shown and used on the next start.
+        vm.end()
+        vm.home()
+        assertEquals(TimerUiState.Idle(updated), vm.uiState.value)
+
+        vm.start()
+        assertEquals(6, vm.running().totalRounds)
+        assertTrue(vm.running().tapEnds)
+        assertFalse(vm.running().keepScreenOn)
     }
 }

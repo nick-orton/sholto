@@ -11,4 +11,52 @@
     <string name="total_time">Total time</string>
     <string name="again">AGAIN</string>
     <string name="home">HOME</string>
+
+    <!-- Settings -->
+    <string name="settings">Settings</string>
+    <string name="back">Back</string>
+    <string name="presets">Presets</string>
+    <string name="preset_custom">Custom</string>
+    <string name="preset_custom_summary">Your own settings, not saved as a preset</string>
+    <string name="save_as_preset">Save as preset</string>
+    <string name="preset_options">Options for %1$s</string>
+    <string name="rename">Rename</string>
+    <string name="delete">Delete</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="preset_name">Name</string>
+    <string name="rename_preset">Rename preset</string>
+    <string name="delete_preset_title">Delete \"%1$s\"?</string>
+    <string name="delete_preset_body">Your current settings stay as they are.</string>
+    <string name="name_blank">Enter a name</string>
+    <string name="name_too_long">Use %1$d characters or fewer</string>
+    <string name="name_taken">There\'s already a preset with that name</string>
+
+    <string name="section_rounds">Rounds</string>
+    <string name="round_length">Round length</string>
+    <string name="warning_length">Warning</string>
+    <string name="warning_length_summary">Work is %1$s, then the warning</string>
+    <string name="rest_length">Rest</string>
+    <string name="rounds">Rounds</string>
+    <string name="unlimited_rounds">Unlimited rounds</string>
+    <string name="unlimited_rounds_summary">Repeat until you stop</string>
+    <string name="get_ready">Get ready</string>
+    <string name="off">Off</string>
+    <string name="decrease">Decrease %1$s</string>
+    <string name="increase">Increase %1$s</string>
+
+    <string name="section_session">During a session</string>
+    <string name="tap_behavior">Tap the screen to</string>
+    <string name="tap_pause">Pause</string>
+    <string name="tap_stop">Stop immediately</string>
+    <string name="vibration">Vibration</string>
+    <string name="vibration_summary">Buzz on each phase change</string>
+    <string name="keep_screen_on">Keep screen on</string>
+
+    <string name="section_sounds">Sounds</string>
+    <string name="sound_round_start">Round start: bell</string>
+    <string name="sound_warning">Warning: wood-block clacks</string>
+    <string name="sound_round_end">Round end: triple bell</string>
+    <string name="sound_countdown">Countdown: beeps</string>
+    <string name="sound_session_done">Session done: long bell</string>
 </resources>

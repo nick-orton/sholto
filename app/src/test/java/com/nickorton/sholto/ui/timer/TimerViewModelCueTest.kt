@@ -7,10 +7,12 @@ import com.nickorton.sholto.audio.Cue.RoundStart
 import com.nickorton.sholto.audio.Cue.SessionDone
 import com.nickorton.sholto.audio.Cue.Warning
 import com.nickorton.sholto.audio.CuePlayer
+import com.nickorton.sholto.data.TimerSettings
 import com.nickorton.sholto.engine.Clock
 import com.nickorton.sholto.engine.RoundConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.resetMain
@@ -30,7 +32,9 @@ class TimerViewModelCueTest {
     private val scheduler = TestCoroutineScheduler()
     private val clock = Clock { scheduler.currentTime }
     private val played = mutableListOf<Pair<Long, Cue>>()
+    private val haptics = mutableListOf<Pair<Long, Cue>>()
     private val recorder = CuePlayer { played += scheduler.currentTime to it }
+    private val hapticRecorder = CuePlayer { haptics += scheduler.currentTime to it }
 
     // 3 rounds of 0:20 (0:15 work + 0:05 warning), 0:10 rest, 0:05 get ready.
     private val config =
@@ -52,7 +56,16 @@ class TimerViewModelCueTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel(c: RoundConfig = config) = TimerViewModel(config = c, clock = clock, cuePlayer = recorder)
+    private fun viewModel(
+        c: RoundConfig = config,
+        sounds: Set<Cue> = Cue.entries.toSet(),
+        vibration: Boolean = true,
+    ) = TimerViewModel(
+        settings = flowOf(TimerSettings(round = c, sounds = sounds, vibration = vibration)),
+        clock = clock,
+        cuePlayer = recorder,
+        hapticPlayer = hapticRecorder,
+    ).also { scheduler.runCurrent() }
 
     private fun advance(ms: Long) {
         scheduler.advanceTimeBy(ms)
@@ -150,5 +163,22 @@ class TimerViewModelCueTest {
             listOf(12_000L to Countdown, 13_000L to Countdown, 14_000L to Countdown, 15_000L to RoundStart),
             played,
         )
+    }
+
+    @Test
+    fun `per-sound toggles and vibration toggle filter cues independently`() {
+        val vm = viewModel(sounds = setOf(RoundStart, SessionDone), vibration = false)
+        vm.start()
+        advance(100_000L)
+        assertEquals(
+            listOf(
+                5_000L to RoundStart,
+                35_000L to RoundStart,
+                65_000L to RoundStart,
+                85_000L to SessionDone,
+            ),
+            played,
+        )
+        assertEquals(emptyList<Pair<Long, Cue>>(), haptics)
     }
 }

@@ -49,7 +49,8 @@ import com.nickorton.sholto.ui.theme.SholtoTheme
 
 /**
  * The running session: phase color, countdown, round counter and progress.
- * Tap anywhere to pause; hold anywhere to end.
+ * Tap anywhere to pause (or to end, if tap behavior is set to stop); hold
+ * anywhere to end.
  */
 @Composable
 fun TimerScreen(
@@ -59,12 +60,13 @@ fun TimerScreen(
     onEnd: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    KeepScreenOn()
+    if (state.keepScreenOn) KeepScreenOn()
     val style = phaseStyle(state.phase)
 
     // The gesture detector lives across recompositions (one every ~100 ms),
     // so it reads the latest state and callbacks instead of capturing them.
     val isPaused by rememberUpdatedState(state.isPaused)
+    val tapEnds by rememberUpdatedState(state.tapEnds)
     val currentOnPause by rememberUpdatedState(onPause)
     val currentOnEnd by rememberUpdatedState(onEnd)
     val pauseLabel = stringResource(R.string.pause)
@@ -77,13 +79,22 @@ fun TimerScreen(
                 .background(style.background)
                 .pointerInput(Unit) {
                     detectGloveGestures(
-                        onTap = { if (!isPaused) currentOnPause() },
+                        onTap = {
+                            // While paused, the overlay's buttons do the work.
+                            if (!isPaused) {
+                                if (tapEnds) {
+                                    currentOnEnd()
+                                } else {
+                                    currentOnPause()
+                                }
+                            }
+                        },
                         onLongPress = { currentOnEnd() },
                     )
                 }.semantics {
                     if (!state.isPaused) {
-                        onClick(label = pauseLabel) {
-                            onPause()
+                        onClick(label = if (state.tapEnds) endLabel else pauseLabel) {
+                            if (state.tapEnds) onEnd() else onPause()
                             true
                         }
                     }
