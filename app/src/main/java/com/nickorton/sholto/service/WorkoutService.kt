@@ -21,9 +21,11 @@ import com.nickorton.sholto.R
 import com.nickorton.sholto.SholtoApplication
 import com.nickorton.sholto.audio.Haptics
 import com.nickorton.sholto.audio.SoundPlayer
-import com.nickorton.sholto.engine.Phase
+import com.nickorton.sholto.audio.TtsAnnouncer
+import com.nickorton.sholto.ui.caller.CallerUiState
 import com.nickorton.sholto.ui.timer.TimerUiState
-import com.nickorton.sholto.ui.timer.formatCountdown
+import com.nickorton.sholto.ui.timer.callerNotificationText
+import com.nickorton.sholto.ui.timer.callerNotificationTitle
 import com.nickorton.sholto.ui.timer.notificationText
 import com.nickorton.sholto.ui.timer.notificationTitle
 import kotlinx.coroutines.CoroutineScope
@@ -33,6 +35,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
@@ -46,15 +49,15 @@ internal fun isCallAudioMode(mode: Int): Boolean =
         mode == AudioManager.MODE_CALL_SCREENING
 
 /**
- * Foreground service that owns the running [TimerSession], [SoundPlayer] and
- * [Haptics] (DESIGN.md §5.4).
+ * Foreground service that owns the running [TimerSession], [CallerSession],
+ * [SoundPlayer], [TtsAnnouncer] and [Haptics] (DESIGN.md §5.4).
  *
- * While a session is running or paused:
+ * While a timer or punch-caller session is running or paused:
  * - The service runs in the foreground (`mediaPlayback`) with an ongoing
- *   notification showing the phase, time left and round, plus Pause/Resume
- *   and Stop actions that work from the shade and lock screen.
+ *   notification showing the current state and time, plus Pause/Resume and
+ *   Stop actions that work from the shade and lock screen.
  * - While unpaused, a partial wake lock keeps the CPU awake with the screen
- *   off so cues fire on their exact second boundaries.
+ *   off so bells and spoken callouts fire on time.
  * - Swiping the app away from Recents leaves the session running from the
  *   notification; tapping the notification reattaches the UI.
  * - An incoming phone or VoIP call pauses a running session automatically.
@@ -71,7 +74,9 @@ class WorkoutService :
 
     private lateinit var soundPlayer: SoundPlayer
     private lateinit var haptics: Haptics
+    private lateinit var announcer: TtsAnnouncer
     private lateinit var session: TimerSession
+    private lateinit var callerSession: CallerSession
     private lateinit var notificationManager: NotificationManager
     private lateinit var audioManager: AudioManager
     private lateinit var wakeLock: PowerManager.WakeLock
@@ -81,10 +86,31 @@ class WorkoutService :
     private var bound = false
     private var startedService = false
     private var inForeground = false
-    private var lastNotification: NotificationKey? = null
+    private var lastNotification: NotificationContent? = null
 
     override val uiState: StateFlow<TimerUiState>
         get() = session.uiState
+
+    val callerController: CallerController =
+        object : CallerController {
+            override val uiState: StateFlow<CallerUiState>
+                get() = callerSession.uiState
+
+            override fun start() {
+                if (session.uiState.value is TimerUiState.Running) return
+                finalBellJob?.cancel()
+                finalBellJob = null
+                callerSession.start()
+            }
+
+            override fun pause() = callerSession.pause()
+
+            override fun resume() = callerSession.resume()
+
+            override fun end() = callerSession.end()
+
+            override fun home() = callerSession.home()
+        }
 
     override fun onCreate() {
         super.onCreate()
@@ -99,18 +125,33 @@ class WorkoutService :
         createNotificationChannel()
         soundPlayer = SoundPlayer(this)
         haptics = Haptics(this)
+        announcer = TtsAnnouncer(this)
+        val inCallCheck = { isCallAudioMode(audioManager.mode) }
         session =
             TimerSession(
                 scope = serviceScope,
                 settings = app.settingsRepository.settings,
                 cuePlayer = soundPlayer,
                 hapticPlayer = haptics,
-                isInCall = { isCallAudioMode(audioManager.mode) },
+                isInCall = inCallCheck,
+            )
+        callerSession =
+            CallerSession(
+                scope = serviceScope,
+                settings = app.settingsRepository.callerSettings,
+                announcer = announcer,
+                cuePlayer = soundPlayer,
+                hapticPlayer = haptics,
+                isInCall = inCallCheck,
             )
         registerCallModeListener()
 
         serviceScope.launch {
-            session.uiState.collect(::onSessionStateChanged)
+            combine(session.uiState, callerSession.uiState) { timerState, callerState ->
+                timerState to callerState
+            }.collect { (timerState, callerState) ->
+                onStatesChanged(timerState, callerState)
+            }
         }
     }
 
@@ -122,12 +163,12 @@ class WorkoutService :
         when (intent?.action) {
             ACTION_START -> {
                 startedService = true
-                val current = session.uiState.value as? TimerUiState.Running
+                val current = activeNotificationContent()
                 // Every startForegroundService call must be answered by
                 // startForeground, even if the session ended before this
                 // intent arrived.
                 if (!inForeground) {
-                    promoteToForeground(current ?: FALLBACK_RUNNING_STATE)
+                    promoteToForeground(current ?: FALLBACK_NOTIFICATION)
                 }
                 if (current == null) {
                     exitForeground()
@@ -136,16 +177,22 @@ class WorkoutService :
             }
 
             ACTION_PAUSE -> {
-                pause()
+                session.pause()
+                callerSession.pause()
             }
 
             ACTION_RESUME -> {
-                resume()
+                session.resume()
+                callerSession.resume()
             }
 
             ACTION_STOP -> {
-                end()
-                if (!bound) home()
+                session.end()
+                callerSession.end()
+                if (!bound) {
+                    session.home()
+                    callerSession.home()
+                }
             }
         }
         return START_NOT_STICKY
@@ -177,10 +224,12 @@ class WorkoutService :
         releaseWakeLock()
         serviceScope.cancel()
         soundPlayer.release()
+        announcer.release()
         super.onDestroy()
     }
 
     override fun start() {
+        if (callerSession.uiState.value is CallerUiState.Running) return
         finalBellJob?.cancel()
         finalBellJob = null
         session.start()
@@ -194,49 +243,58 @@ class WorkoutService :
 
     override fun home() = session.home()
 
-    private fun onSessionStateChanged(state: TimerUiState) {
-        when (state) {
-            is TimerUiState.Running -> {
-                finalBellJob?.cancel()
-                finalBellJob = null
-                if (state.isPaused) releaseWakeLock() else acquireWakeLock()
-                updateNotificationIfNeeded(state)
-            }
+    private fun activeNotificationContent(): NotificationContent? {
+        val timer = session.uiState.value
+        if (timer is TimerUiState.Running) return timer.toNotificationContent()
+        val caller = callerSession.uiState.value
+        if (caller is CallerUiState.Running) return caller.toNotificationContent()
+        return null
+    }
 
-            is TimerUiState.Done -> {
-                exitForeground()
-                if (state.finished) {
-                    // Hold the wake lock until the 4-second final bell has
-                    // finished ringing and released audio focus.
-                    acquireWakeLock()
-                    finalBellJob?.cancel()
-                    finalBellJob =
-                        serviceScope.launch {
-                            delay(FINAL_BELL_HOLD_MS)
-                            releaseWakeLock()
-                            if (!bound) {
-                                session.home()
-                                startedService = false
-                                stopSelf()
-                            }
+    private fun onStatesChanged(
+        timerState: TimerUiState,
+        callerState: CallerUiState,
+    ) {
+        val active =
+            when {
+                timerState is TimerUiState.Running -> timerState.toNotificationContent()
+                callerState is CallerUiState.Running -> callerState.toNotificationContent()
+                else -> null
+            }
+        if (active != null) {
+            finalBellJob?.cancel()
+            finalBellJob = null
+            if (active.isPaused) releaseWakeLock() else acquireWakeLock()
+            updateNotificationIfNeeded(active)
+            return
+        }
+
+        exitForeground()
+        val naturalFinish =
+            (timerState is TimerUiState.Done && timerState.finished) ||
+                (callerState is CallerUiState.Done && callerState.finished)
+        if (naturalFinish) {
+            if (finalBellJob?.isActive != true) {
+                acquireWakeLock()
+                finalBellJob =
+                    serviceScope.launch {
+                        delay(FINAL_BELL_HOLD_MS)
+                        releaseWakeLock()
+                        if (!bound) {
+                            session.home()
+                            callerSession.home()
+                            startedService = false
+                            stopSelf()
                         }
-                } else {
-                    releaseWakeLock()
-                    stopIfIdle()
-                }
+                    }
             }
-
-            TimerUiState.Loading, is TimerUiState.Idle -> {
-                exitForeground()
-                if (finalBellJob?.isActive != true) {
-                    releaseWakeLock()
-                    stopIfIdle()
-                }
-            }
+        } else if (finalBellJob?.isActive != true) {
+            releaseWakeLock()
+            stopIfIdle()
         }
     }
 
-    private fun promoteToForeground(state: TimerUiState.Running) {
+    private fun promoteToForeground(content: NotificationContent) {
         if (!startedService) {
             startedService = true
             ContextCompat.startForegroundService(
@@ -244,27 +302,25 @@ class WorkoutService :
                 Intent(this, WorkoutService::class.java).setAction(ACTION_START),
             )
         }
-        val key = state.toNotificationKey()
-        val notification = buildNotification(state)
+        val notification = buildNotification(content)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
         inForeground = true
-        lastNotification = key
+        lastNotification = content
     }
 
-    private fun updateNotificationIfNeeded(state: TimerUiState.Running) {
-        val key = state.toNotificationKey()
+    private fun updateNotificationIfNeeded(content: NotificationContent) {
         if (!inForeground) {
-            promoteToForeground(state)
+            promoteToForeground(content)
             return
         }
-        if (key == lastNotification) return
-        lastNotification = key
+        if (content == lastNotification) return
+        lastNotification = content
         if (canPostNotifications()) {
-            runCatching { notificationManager.notify(NOTIFICATION_ID, buildNotification(state)) }
+            runCatching { notificationManager.notify(NOTIFICATION_ID, buildNotification(content)) }
         }
     }
 
@@ -276,7 +332,7 @@ class WorkoutService :
     }
 
     private fun stopIfIdle() {
-        if (!bound && session.uiState.value !is TimerUiState.Running && finalBellJob?.isActive != true) {
+        if (!bound && activeNotificationContent() == null && finalBellJob?.isActive != true) {
             startedService = false
             stopSelf()
         }
@@ -318,7 +374,7 @@ class WorkoutService :
         notificationManager.createNotificationChannel(channel)
     }
 
-    private fun buildNotification(state: TimerUiState.Running): Notification {
+    private fun buildNotification(content: NotificationContent): Notification {
         val openAppIntent =
             PendingIntent.getActivity(
                 this,
@@ -328,7 +384,7 @@ class WorkoutService :
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
         val toggleAction =
-            if (state.isPaused) {
+            if (content.isPaused) {
                 NotificationCompat.Action
                     .Builder(
                         0,
@@ -354,8 +410,8 @@ class WorkoutService :
         return NotificationCompat
             .Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_timer)
-            .setContentTitle(notificationTitle(state))
-            .setContentText(notificationText(state))
+            .setContentTitle(content.title)
+            .setContentText(content.text)
             .setContentIntent(openAppIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -384,7 +440,9 @@ class WorkoutService :
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val listener =
                 AudioManager.OnModeChangedListener { mode ->
-                    session.onCallStateChanged(isCallAudioMode(mode))
+                    val inCall = isCallAudioMode(mode)
+                    session.onCallStateChanged(inCall)
+                    callerSession.onCallStateChanged(inCall)
                 }
             modeListener = listener
             audioManager.addOnModeChangedListener(mainExecutor, listener)
@@ -400,24 +458,25 @@ class WorkoutService :
 
     /**
      * Everything visible in the notification. Rebuilding and posting only when
-     * this changes keeps updates to once a second instead of every 100 ms tick.
+     * this changes keeps updates to once a second instead of every tick.
      */
-    private data class NotificationKey(
-        val phase: Phase,
-        val round: Int,
-        val totalRounds: Int?,
-        val warningLengthMs: Long,
-        val countdown: String,
+    private data class NotificationContent(
+        val title: String,
+        val text: String,
         val isPaused: Boolean,
     )
 
-    private fun TimerUiState.Running.toNotificationKey() =
-        NotificationKey(
-            phase = phase,
-            round = round,
-            totalRounds = totalRounds,
-            warningLengthMs = warningLengthMs,
-            countdown = formatCountdown(phaseTimeLeftMs),
+    private fun TimerUiState.Running.toNotificationContent() =
+        NotificationContent(
+            title = notificationTitle(this),
+            text = notificationText(this),
+            isPaused = isPaused,
+        )
+
+    private fun CallerUiState.Running.toNotificationContent() =
+        NotificationContent(
+            title = callerNotificationTitle(this),
+            text = callerNotificationText(this),
             isPaused = isPaused,
         )
 
@@ -442,14 +501,10 @@ class WorkoutService :
         private const val REQUEST_RESUME = 3
         private const val REQUEST_STOP = 4
 
-        private val FALLBACK_RUNNING_STATE =
-            TimerUiState.Running(
-                phase = Phase.GetReady,
-                round = 1,
-                totalRounds = null,
-                phaseTimeLeftMs = 0L,
-                roundProgress = 0f,
-                warningLengthMs = 0L,
+        private val FALLBACK_NOTIFICATION =
+            NotificationContent(
+                title = "GET READY · 0:00",
+                text = "ROUND 1",
                 isPaused = false,
             )
     }
