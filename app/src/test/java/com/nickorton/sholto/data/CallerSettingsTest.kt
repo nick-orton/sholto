@@ -53,8 +53,15 @@ class CallerSettingsTest {
 
     @Test
     fun `difficulty presets match DESIGN_md 3_5`() {
+        // Combos are off by default (DESIGN.md §3.5), so the defaults are
+        // Intermediate's pacing without its combos: Custom.
         val defaults = CallerSettings()
-        assertEquals("Intermediate", CallerPresets.active(defaults.punch)?.name)
+        assertNull(CallerPresets.active(defaults.punch))
+
+        val intermediate = CallerSettings(punch = CallerPresets.builtIn.first { it.id == "intermediate" }.applyTo(defaults.punch))
+        assertEquals("Intermediate", CallerPresets.active(intermediate.punch)?.name)
+        assertEquals(true, intermediate.punch.combos)
+        assertEquals(3, intermediate.punch.maxComboLength)
 
         val beginner = CallerSettings(punch = CallerPresets.builtIn.first { it.id == "beginner" }.applyTo(defaults.punch))
         assertEquals("Beginner", CallerPresets.active(beginner.punch)?.name)
@@ -65,8 +72,30 @@ class CallerSettingsTest {
         assertEquals("Advanced", CallerPresets.active(advanced.punch)?.name)
         assertEquals(1_800L, advanced.punch.meanGapMs)
         assertEquals(Punch.entries.toSet(), advanced.punch.enabled)
+        assertEquals(4, advanced.punch.maxComboLength)
+        assertEquals(false, beginner.punch.combos)
 
         val custom = advanced.withMeanGap(2_000L)
         assertNull(CallerPresets.active(custom.punch))
+    }
+
+    @Test
+    fun `weights and combo lengths stay in range and never leave nothing to call`() {
+        val s = CallerSettings()
+        assertEquals(5, s.withWeight(Punch.Six, 9).punch.weightOf(Punch.Six))
+        assertEquals(0, s.withWeight(Punch.Six, 0).punch.weightOf(Punch.Six))
+
+        // Only the jab enabled: its weight can't go to 0.
+        val jabOnly = Punch.entries.drop(1).fold(s) { acc, p -> acc.withPunchEnabled(p, on = false) }
+        assertEquals(jabOnly, jabOnly.withWeight(Punch.One, 0))
+
+        val combos = s.withCombos(true).withMaxComboLength(9)
+        assertEquals(6, combos.punch.maxComboLength)
+        assertEquals(2, combos.withMaxComboLength(1).punch.maxComboLength)
+
+        // Zeroing every length up to the max is refused at the last one.
+        val two = combos.withMaxComboLength(2).withComboLengthWeight(1, 0)
+        assertEquals(0, two.punch.comboLengthWeights[0])
+        assertEquals(two, two.withComboLengthWeight(2, 0))
     }
 }

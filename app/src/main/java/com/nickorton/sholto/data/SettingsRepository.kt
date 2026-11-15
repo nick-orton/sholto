@@ -208,6 +208,12 @@ class SettingsRepository(
                 stdDevMs = stdDev,
                 enabled = enabled,
                 avoidRepeats = prefs[Keys.callerAvoidRepeats] ?: p.avoidRepeats,
+                weights = readWeights(prefs[Keys.callerWeights].orEmpty(), enabled),
+                combos = prefs[Keys.callerCombos] ?: p.combos,
+                maxComboLength = (prefs[Keys.callerMaxComboLength] ?: p.maxComboLength).coerceIn(2, PunchConfig.MAX_COMBO_LENGTH),
+                comboLengthWeights = readLengthWeights(prefs[Keys.callerComboLengthWeights], prefs[Keys.callerMaxComboLength]),
+                naturalOnly = prefs[Keys.callerNaturalOnly] ?: p.naturalOnly,
+                allowDoubling = prefs[Keys.callerAllowDoubling] ?: p.allowDoubling,
             )
         return CallerSettings(
             punch = punch,
@@ -236,12 +242,56 @@ class SettingsRepository(
         prefs[Keys.callerStdDev] = p.stdDevMs
         prefs[Keys.callerDisabledPunches] = (Punch.entries - p.enabled).mapTo(mutableSetOf()) { it.name }
         prefs[Keys.callerAvoidRepeats] = p.avoidRepeats
+        prefs[Keys.callerWeights] = p.weights.mapTo(mutableSetOf()) { (punch, w) -> "${punch.name}=$w" }
+        prefs[Keys.callerCombos] = p.combos
+        prefs[Keys.callerMaxComboLength] = p.maxComboLength
+        prefs[Keys.callerComboLengthWeights] = p.comboLengthWeights.joinToString(",")
+        prefs[Keys.callerNaturalOnly] = p.naturalOnly
+        prefs[Keys.callerAllowDoubling] = p.allowDoubling
         prefs[Keys.callerStance] = settings.stance.name
         prefs[Keys.callerCalloutStyle] = settings.calloutStyle.name
         prefs[Keys.callerSpeechRate] = settings.speechRate
         prefs[Keys.callerSessionLength] = settings.sessionLengthMs ?: UNLIMITED_LENGTH
         prefs[Keys.tapBehavior] = settings.tapBehavior.name
         prefs[Keys.keepScreenOn] = settings.keepScreenOn
+    }
+
+    /**
+     * Stored as `One=3` entries. Bad entries are skipped; if what's left
+     * would leave no enabled punch callable, the defaults are used.
+     */
+    private fun readWeights(
+        entries: Set<String>,
+        enabled: Set<Punch>,
+    ): Map<Punch, Int> {
+        val weights =
+            entries
+                .mapNotNull { entry ->
+                    val (name, value) = entry.split('=', limit = 2).takeIf { it.size == 2 } ?: return@mapNotNull null
+                    val punch = Punch.entries.firstOrNull { it.name == name } ?: return@mapNotNull null
+                    val w = value.toIntOrNull() ?: return@mapNotNull null
+                    punch to w.coerceIn(0, PunchConfig.MAX_WEIGHT)
+                }.toMap()
+        return if (enabled.any { (weights[it] ?: PunchConfig.DEFAULT_WEIGHT) > 0 }) weights else emptyMap()
+    }
+
+    /**
+     * Stored as `50,30,15,5,3,2`. Anything that doesn't parse, or leaves no
+     * length up to the max to draw, reads as the defaults.
+     */
+    private fun readLengthWeights(
+        text: String?,
+        storedMax: Int?,
+    ): List<Int> {
+        val defaults = PunchConfig.DEFAULT_COMBO_LENGTH_WEIGHTS
+        val parsed =
+            text
+                ?.split(',')
+                ?.map { it.trim().toIntOrNull()?.coerceIn(0, CallerLimits.MAX_LENGTH_WEIGHT) ?: return defaults }
+                ?.takeIf { it.size == PunchConfig.MAX_COMBO_LENGTH }
+                ?: return defaults
+        val max = (storedMax ?: PunchConfig.DEFAULT_MAX_COMBO_LENGTH).coerceIn(2, PunchConfig.MAX_COMBO_LENGTH)
+        return if (parsed.take(max).any { it > 0 }) parsed else defaults
     }
 
     private fun readFinalPush(prefs: Preferences): FinalPush {
@@ -283,6 +333,12 @@ class SettingsRepository(
         val callerCalloutStyle = stringPreferencesKey("caller_callout_style")
         val callerSpeechRate = floatPreferencesKey("caller_speech_rate")
         val callerSessionLength = longPreferencesKey("caller_session_length_ms")
+        val callerWeights = stringSetPreferencesKey("caller_weights")
+        val callerCombos = booleanPreferencesKey("caller_combos")
+        val callerMaxComboLength = intPreferencesKey("caller_max_combo_length")
+        val callerComboLengthWeights = stringPreferencesKey("caller_combo_length_weights")
+        val callerNaturalOnly = booleanPreferencesKey("caller_natural_only")
+        val callerAllowDoubling = booleanPreferencesKey("caller_allow_doubling")
 
         val finalPushEnabled = booleanPreferencesKey("final_push_enabled")
         val finalPushFactor = floatPreferencesKey("final_push_factor")

@@ -122,22 +122,43 @@ data class CallerPreset(
     val maxGapMs: Long = 8_000L,
     val distribution: GapDistribution,
     val enabled: Set<Punch>,
+    val maxComboLength: Int? = null,
 ) {
+    /** Whether this preset calls combos (up to [maxComboLength]) or singles only. */
+    val combos: Boolean get() = maxComboLength != null
+
     fun matches(config: PunchConfig): Boolean =
         config.meanGapMs == meanGapMs &&
             config.minGapMs == minGapMs &&
             config.maxGapMs == maxGapMs &&
             config.distribution == distribution &&
-            config.enabled == enabled
+            config.enabled == enabled &&
+            config.combos == combos &&
+            (maxComboLength == null || config.maxComboLength == maxComboLength)
 
-    fun applyTo(config: PunchConfig): PunchConfig =
-        config.copy(
+    /**
+     * [config] with this preset's pacing, pool and combos. Weights, combo
+     * length weights and the natural-combo rules stay as you set them; a
+     * length weight that would leave nothing to draw is reset.
+     */
+    fun applyTo(config: PunchConfig): PunchConfig {
+        val lengths =
+            if (maxComboLength != null && config.comboLengthWeights.take(maxComboLength).none { it > 0 }) {
+                PunchConfig.DEFAULT_COMBO_LENGTH_WEIGHTS
+            } else {
+                config.comboLengthWeights
+            }
+        return config.copy(
             meanGapMs = meanGapMs,
             minGapMs = minGapMs,
             maxGapMs = maxGapMs,
             distribution = distribution,
             enabled = enabled,
+            combos = combos,
+            maxComboLength = maxComboLength ?: config.maxComboLength,
+            comboLengthWeights = lengths,
         )
+    }
 }
 
 /** The built-in difficulty presets for the punch caller (DESIGN.md §3.5). */
@@ -159,6 +180,7 @@ object CallerPresets {
                 minGapMs = 1_000L,
                 distribution = GapDistribution.Exponential,
                 enabled = Punch.entries.toSet(),
+                maxComboLength = 3,
             ),
             CallerPreset(
                 id = "advanced",
@@ -167,6 +189,7 @@ object CallerPresets {
                 minGapMs = 600L,
                 distribution = GapDistribution.Exponential,
                 enabled = Punch.entries.toSet(),
+                maxComboLength = 4,
             ),
         )
 

@@ -67,6 +67,44 @@ data class CallerSettings(
 
     fun withAvoidRepeats(avoid: Boolean): CallerSettings = copy(punch = punch.copy(avoidRepeats = avoid))
 
+    /**
+     * Sets [target]'s weight, from 0 to [PunchConfig.MAX_WEIGHT]. A change
+     * that would leave nothing to call is ignored.
+     */
+    fun withWeight(
+        target: Punch,
+        weight: Int,
+    ): CallerSettings {
+        val w = weight.coerceIn(0, PunchConfig.MAX_WEIGHT)
+        val next = punch.weights + (target to w)
+        if (punch.enabled.none { (next[it] ?: PunchConfig.DEFAULT_WEIGHT) > 0 }) return this
+        return copy(punch = punch.copy(weights = next))
+    }
+
+    fun withCombos(on: Boolean): CallerSettings = copy(punch = punch.copy(combos = on).withCallableLengths())
+
+    fun withMaxComboLength(length: Int): CallerSettings =
+        copy(punch = punch.copy(maxComboLength = length.coerceIn(2, PunchConfig.MAX_COMBO_LENGTH)).withCallableLengths())
+
+    /**
+     * Sets the weight of combos of [length] punches, from 0 to
+     * [CallerLimits.MAX_LENGTH_WEIGHT]. A change that would leave no length
+     * to draw is ignored.
+     */
+    fun withComboLengthWeight(
+        length: Int,
+        weight: Int,
+    ): CallerSettings {
+        if (length !in 1..PunchConfig.MAX_COMBO_LENGTH) return this
+        val next = punch.comboLengthWeights.toMutableList().also { it[length - 1] = weight.coerceIn(0, CallerLimits.MAX_LENGTH_WEIGHT) }
+        if (next.take(punch.maxComboLength).none { it > 0 }) return this
+        return copy(punch = punch.copy(comboLengthWeights = next))
+    }
+
+    fun withNaturalOnly(on: Boolean): CallerSettings = copy(punch = punch.copy(naturalOnly = on))
+
+    fun withDoubling(on: Boolean): CallerSettings = copy(punch = punch.copy(allowDoubling = on))
+
     fun withStance(stance: Stance): CallerSettings = copy(stance = stance)
 
     fun withCalloutStyle(style: CalloutStyle): CallerSettings = copy(calloutStyle = style)
@@ -81,7 +119,15 @@ data class CallerSettings(
      * from storage.
      */
     fun sanitized(): CallerSettings =
-        withMeanGap(punch.meanGapMs)
+        copy(
+            punch =
+                punch
+                    .copy(
+                        weights = punch.weights.mapValues { it.value.coerceIn(0, PunchConfig.MAX_WEIGHT) },
+                        maxComboLength = punch.maxComboLength.coerceIn(2, PunchConfig.MAX_COMBO_LENGTH),
+                        comboLengthWeights = punch.comboLengthWeights.map { it.coerceIn(0, CallerLimits.MAX_LENGTH_WEIGHT) },
+                    ).withCallableLengths(),
+        ).withMeanGap(punch.meanGapMs)
             .withMinGap(punch.minGapMs)
             .withMaxGap(punch.maxGapMs)
             .withStdDev(punch.stdDevMs)
@@ -89,8 +135,20 @@ data class CallerSettings(
             .withSessionLength(sessionLengthMs)
 }
 
+/**
+ * This config with at least one combo length that can be drawn: if every
+ * length up to the max has weight 0, single punches get the default weight.
+ */
+private fun PunchConfig.withCallableLengths(): PunchConfig {
+    if (comboLengthWeights.take(maxComboLength).any { it > 0 }) return this
+    return copy(comboLengthWeights = comboLengthWeights.toMutableList().also { it[0] = PunchConfig.DEFAULT_COMBO_LENGTH_WEIGHTS[0] })
+}
+
 /** The ranges the caller settings screen offers (DESIGN.md §3.5). */
 object CallerLimits {
+    const val MAX_LENGTH_WEIGHT = 100
+    const val LENGTH_WEIGHT_STEP = 5
+
     val meanGap = LengthRange(minMs = 500L, maxMs = 15_000L, stepMs = 500L)
     val minGap = LengthRange(minMs = 300L, maxMs = 15_000L, stepMs = 100L)
     val maxGap = LengthRange(minMs = 500L, maxMs = 30_000L, stepMs = 1_000L)

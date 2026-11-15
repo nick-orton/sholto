@@ -199,4 +199,36 @@ class SettingsRepositoryTest {
             assertEquals(FinalPush(enabled = false, factor = 0.4f), combined.finalPush)
             scope.cancel()
         }
+
+    @Test
+    fun `weights and combo settings persist`() =
+        runTest {
+            val file = tempFolder.newFile("combos.preferences_pb")
+            val scope1 = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
+            val repo1 = SettingsRepository(PreferenceDataStoreFactory.create(scope = scope1) { file })
+            repo1.updateCallerSettings {
+                it
+                    .withWeight(Punch.Six, 0)
+                    .withWeight(Punch.Two, 4)
+                    .withCombos(true)
+                    .withMaxComboLength(5)
+                    .withComboLengthWeight(5, 20)
+                    .withNaturalOnly(true)
+                    .withDoubling(true)
+            }
+            scope1.cancel()
+
+            val scope2 = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
+            val repo2 = SettingsRepository(PreferenceDataStoreFactory.create(scope = scope2) { file })
+            val p = repo2.callerSettings.first().punch
+            assertEquals(0, p.weightOf(Punch.Six))
+            assertEquals(4, p.weightOf(Punch.Two))
+            assertEquals(1, p.weightOf(Punch.One))
+            assertEquals(true, p.combos)
+            assertEquals(5, p.maxComboLength)
+            assertEquals(listOf(50, 30, 15, 5, 20, 2), p.comboLengthWeights)
+            assertEquals(true, p.naturalOnly)
+            assertEquals(true, p.allowDoubling)
+            scope2.cancel()
+        }
 }
