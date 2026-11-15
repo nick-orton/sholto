@@ -79,7 +79,7 @@ fun SholtoApp(
     settingsViewModel: SettingsViewModel =
         viewModel {
             val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as SholtoApplication
-            SettingsViewModel(app.settingsRepository)
+            SettingsViewModel(app.settingsRepository, app.voicePackInstalled)
         },
 ) {
     val timerState by timerViewModel.uiState.collectAsStateWithLifecycle()

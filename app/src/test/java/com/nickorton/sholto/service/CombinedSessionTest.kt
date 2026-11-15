@@ -53,7 +53,7 @@ class CombinedSessionTest {
             settings = kotlinx.coroutines.flow.flowOf(settings),
             clock = { scope.testScheduler.currentTime },
             randomFactory = { Random(seed) },
-            announcer = CallAnnouncer { punch, _, _, _ -> calls += scope.testScheduler.currentTime to punch },
+            announcer = CallAnnouncer { punch, _ -> calls += scope.testScheduler.currentTime to punch },
             cuePlayer = CuePlayer { cues += scope.testScheduler.currentTime to it },
         )
     }
@@ -229,7 +229,7 @@ class CombinedSessionTest {
                     scope = backgroundScope,
                     settings = flow,
                     clock = { testScheduler.currentTime },
-                    announcer = CallAnnouncer { _, _, _, _ -> calls += testScheduler.currentTime },
+                    announcer = CallAnnouncer { _, _ -> calls += testScheduler.currentTime },
                 )
             runCurrent()
             session.start()

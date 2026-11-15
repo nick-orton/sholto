@@ -1,10 +1,12 @@
 package com.nickorton.sholto.data
 
+import com.nickorton.sholto.engine.Callout
 import com.nickorton.sholto.engine.CalloutStyle
 import com.nickorton.sholto.engine.GapDistribution
 import com.nickorton.sholto.engine.Punch
 import com.nickorton.sholto.engine.PunchConfig
 import com.nickorton.sholto.engine.Stance
+import com.nickorton.sholto.engine.Voice
 import kotlin.math.roundToInt
 
 /**
@@ -22,6 +24,7 @@ data class CallerSettings(
     val stance: Stance = Stance.Orthodox,
     val calloutStyle: CalloutStyle = CalloutStyle.Numbers,
     val speechRate: Float = CallerLimits.DEFAULT_SPEECH_RATE,
+    val voice: Voice = Voice.SystemTts,
     val sessionLengthMs: Long? = null,
     val tapBehavior: TapBehavior = TapBehavior.Pause,
     val keepScreenOn: Boolean = true,
@@ -108,6 +111,11 @@ data class CallerSettings(
     fun withStance(stance: Stance): CallerSettings = copy(stance = stance)
 
     fun withCalloutStyle(style: CalloutStyle): CallerSettings = copy(calloutStyle = style)
+
+    /** How calls are said, for the announcer. */
+    val callout: Callout get() = Callout(calloutStyle, stance, speechRate, voice)
+
+    fun withVoice(voice: Voice): CallerSettings = copy(voice = voice)
 
     fun withSpeechRate(rate: Float): CallerSettings = copy(speechRate = CallerLimits.clampSpeechRate(rate))
 

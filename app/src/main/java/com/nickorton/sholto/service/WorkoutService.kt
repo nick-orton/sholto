@@ -19,9 +19,12 @@ import androidx.core.content.ContextCompat
 import com.nickorton.sholto.MainActivity
 import com.nickorton.sholto.R
 import com.nickorton.sholto.SholtoApplication
+import com.nickorton.sholto.audio.CallAnnouncer
 import com.nickorton.sholto.audio.Haptics
 import com.nickorton.sholto.audio.SoundPlayer
 import com.nickorton.sholto.audio.TtsAnnouncer
+import com.nickorton.sholto.audio.VoicePackAnnouncer
+import com.nickorton.sholto.audio.VoiceRouter
 import com.nickorton.sholto.ui.caller.CallerUiState
 import com.nickorton.sholto.ui.combined.CombinedUiState
 import com.nickorton.sholto.ui.timer.TimerUiState
@@ -53,7 +56,8 @@ internal fun isCallAudioMode(mode: Int): Boolean =
 
 /**
  * Foreground service that owns the running [TimerSession], [CallerSession],
- * [CombinedSession], [SoundPlayer], [TtsAnnouncer] and [Haptics]
+ * [CombinedSession], [SoundPlayer], [TtsAnnouncer], [VoicePackAnnouncer] and
+ * [Haptics]
  * (DESIGN.md §5.4). Only one session of any kind runs at a time.
  *
  * While a session is running or paused:
@@ -78,7 +82,9 @@ class WorkoutService :
 
     private lateinit var soundPlayer: SoundPlayer
     private lateinit var haptics: Haptics
-    private lateinit var announcer: TtsAnnouncer
+    private lateinit var tts: TtsAnnouncer
+    private lateinit var voicePack: VoicePackAnnouncer
+    private lateinit var announcer: CallAnnouncer
     private lateinit var session: TimerSession
     private lateinit var callerSession: CallerSession
     private lateinit var combinedSession: CombinedSession
@@ -151,7 +157,9 @@ class WorkoutService :
         createNotificationChannel()
         soundPlayer = SoundPlayer(this)
         haptics = Haptics(this)
-        announcer = TtsAnnouncer(this)
+        tts = TtsAnnouncer(this)
+        voicePack = VoicePackAnnouncer(this)
+        announcer = VoiceRouter(system = tts, bundled = voicePack, canSayBundled = voicePack::canSay)
         val inCallCheck = { isCallAudioMode(audioManager.mode) }
         session =
             TimerSession(
@@ -258,7 +266,8 @@ class WorkoutService :
         releaseWakeLock()
         serviceScope.cancel()
         soundPlayer.release()
-        announcer.release()
+        tts.release()
+        voicePack.release()
         super.onDestroy()
     }
 

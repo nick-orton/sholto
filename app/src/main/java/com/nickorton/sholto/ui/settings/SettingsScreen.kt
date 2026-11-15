@@ -77,6 +77,7 @@ import com.nickorton.sholto.engine.Punch
 import com.nickorton.sholto.engine.PunchConfig
 import com.nickorton.sholto.engine.RoundConfig
 import com.nickorton.sholto.engine.Stance
+import com.nickorton.sholto.engine.Voice
 import com.nickorton.sholto.ui.home.WorkoutMode
 import com.nickorton.sholto.ui.home.workoutModes
 import com.nickorton.sholto.ui.theme.SholtoTheme
@@ -190,7 +191,7 @@ fun SettingsScreen(
                     SectionDivider()
                     CallerCombosSection(state.callerSettings, onUpdateCaller)
                     SectionDivider()
-                    CallerVoiceSection(state.callerSettings, onUpdateCaller)
+                    CallerVoiceSection(state.callerSettings, onUpdateCaller, state.voicePackInstalled)
                     SectionDivider()
                     CallerSessionLengthSection(state.callerSettings, onUpdateCaller)
                     SectionDivider()
@@ -801,8 +802,43 @@ private fun CallerCombosSection(
 private fun CallerVoiceSection(
     settings: CallerSettings,
     onUpdate: ((CallerSettings) -> CallerSettings) -> Unit,
+    voicePackInstalled: Boolean,
 ) {
     SectionTitle(stringResource(R.string.section_voice))
+    Text(stringResource(R.string.voice), style = MaterialTheme.typography.bodyLarge)
+    val voices =
+        listOf(
+            Voice.SystemTts to R.string.voice_system,
+            Voice.Bundled to R.string.voice_bundled,
+        )
+    // Without the clips, calls use the system voice whatever is saved.
+    val effectiveVoice = if (voicePackInstalled) settings.voice else Voice.SystemTts
+    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        voices.forEachIndexed { index, (voice, label) ->
+            SegmentedButton(
+                selected = effectiveVoice == voice,
+                onClick = { onUpdate { it.withVoice(voice) } },
+                enabled = voice == Voice.SystemTts || voicePackInstalled,
+                shape = SegmentedButtonDefaults.itemShape(index, voices.size),
+            ) {
+                Text(stringResource(label))
+            }
+        }
+    }
+    Text(
+        text =
+            stringResource(
+                when {
+                    !voicePackInstalled -> R.string.voice_bundled_missing
+                    effectiveVoice == Voice.Bundled -> R.string.voice_bundled_summary
+                    else -> R.string.voice_system_summary
+                },
+            ),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
+    )
+
     Text(stringResource(R.string.stance), style = MaterialTheme.typography.bodyLarge)
     val stances =
         listOf(

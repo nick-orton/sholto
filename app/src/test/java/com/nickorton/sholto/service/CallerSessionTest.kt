@@ -51,8 +51,8 @@ class CallerSessionTest {
         runTest(dispatcher) {
             val spoken = mutableListOf<Pair<Combo, Float>>()
             val announcer =
-                CallAnnouncer { punch, _, _, speechRate ->
-                    spoken += punch to speechRate
+                CallAnnouncer { punch, callout ->
+                    spoken += punch to callout.speechRate
                 }
             val playedCues = mutableListOf<Cue>()
             val buzzedCues = mutableListOf<Cue>()
@@ -137,7 +137,7 @@ class CallerSessionTest {
                 CallerSession(
                     scope = backgroundScope,
                     settings = MutableStateFlow(settings),
-                    announcer = CallAnnouncer { punch, _, _, _ -> spoken += punch },
+                    announcer = CallAnnouncer { punch, _ -> spoken += punch },
                     clock = { testScheduler.currentTime },
                     randomFactory = { Random(7) },
                 )
@@ -209,7 +209,7 @@ class CallerSessionTest {
                 CallerSession(
                     scope = backgroundScope,
                     settings = MutableStateFlow(settings),
-                    announcer = CallAnnouncer { call, _, _, _ -> spoken += testScheduler.currentTime to call },
+                    announcer = CallAnnouncer { call, _ -> spoken += testScheduler.currentTime to call },
                     clock = { testScheduler.currentTime },
                     randomFactory = { Random(5) },
                 )

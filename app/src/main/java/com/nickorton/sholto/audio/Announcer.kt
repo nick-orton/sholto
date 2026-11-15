@@ -9,26 +9,35 @@ import android.os.Looper
 import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import com.nickorton.sholto.engine.CalloutStyle
+import com.nickorton.sholto.engine.CallTiming
+import com.nickorton.sholto.engine.Callout
 import com.nickorton.sholto.engine.Combo
-import com.nickorton.sholto.engine.Stance
+import com.nickorton.sholto.engine.Voice
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Speaks punch calls and combos aloud. [TtsAnnouncer] uses Android's [TextToSpeech];
- * unit tests use [None] or a recording implementation.
+ * Speaks punch calls and combos aloud. [TtsAnnouncer] uses Android's
+ * [TextToSpeech] and [VoicePackAnnouncer] recorded clips; unit tests use
+ * [None] or a recording implementation.
  */
 fun interface CallAnnouncer {
     fun announce(
         call: Combo,
-        style: CalloutStyle,
-        stance: Stance,
-        speechRate: Float,
+        callout: Callout,
     )
 
+    /**
+     * About how long [call] takes to say, for spacing calls and keeping them
+     * clear of bells. By default an estimate from the syllables.
+     */
+    fun speechMs(
+        call: Combo,
+        callout: Callout,
+    ): Long = CallTiming.speechMs(call.spokenText(callout.style, callout.stance), callout.speechRate)
+
     companion object {
-        val None = CallAnnouncer { _, _, _, _ -> }
+        val None = CallAnnouncer { _, _ -> }
     }
 }
 
@@ -108,15 +117,13 @@ class TtsAnnouncer(
 
     override fun announce(
         call: Combo,
-        style: CalloutStyle,
-        stance: Stance,
-        speechRate: Float,
+        callout: Callout,
     ) {
         if (!ready) return
         val granted = audioManager.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
         if (!granted) return
 
-        val rate = speechRate.coerceIn(0.8f, 2.0f)
+        val rate = callout.speechRate.coerceIn(0.8f, 2.0f)
         if (rate != lastSpeechRate) {
             tts.setSpeechRate(rate)
             lastSpeechRate = rate
@@ -128,7 +135,7 @@ class TtsAnnouncer(
         handler.removeCallbacks(releaseFocusFallback)
         handler.postAtTime(releaseFocusFallback, SystemClock.uptimeMillis() + FOCUS_TIMEOUT_MS)
 
-        val spoken = call.spokenText(style, stance)
+        val spoken = call.spokenText(callout.style, callout.stance)
         val result = tts.speak(spoken, TextToSpeech.QUEUE_FLUSH, null, id)
         if (result == TextToSpeech.ERROR) {
             onUtteranceFinished(id)
@@ -160,4 +167,31 @@ class TtsAnnouncer(
         const val WARMUP_SILENCE_MS = 10L
         const val FOCUS_TIMEOUT_MS = 3_000L
     }
+}
+
+/**
+ * Says each call with the voice chosen in settings: the bundled voice when
+ * [Callout.voice] asks for it and [canSayBundled] can say the call, the
+ * system voice otherwise. So a missing or still-loading clip falls back to
+ * speech instead of skipping the call.
+ */
+class VoiceRouter(
+    private val system: CallAnnouncer,
+    private val bundled: CallAnnouncer,
+    private val canSayBundled: (Combo, Callout) -> Boolean,
+) : CallAnnouncer {
+    override fun announce(
+        call: Combo,
+        callout: Callout,
+    ) = pick(call, callout).announce(call, callout)
+
+    override fun speechMs(
+        call: Combo,
+        callout: Callout,
+    ): Long = pick(call, callout).speechMs(call, callout)
+
+    private fun pick(
+        call: Combo,
+        callout: Callout,
+    ): CallAnnouncer = if (callout.voice == Voice.Bundled && canSayBundled(call, callout)) bundled else system
 }

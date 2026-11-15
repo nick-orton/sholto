@@ -18,6 +18,7 @@ import com.nickorton.sholto.engine.Punch
 import com.nickorton.sholto.engine.PunchConfig
 import com.nickorton.sholto.engine.RoundConfig
 import com.nickorton.sholto.engine.Stance
+import com.nickorton.sholto.engine.Voice
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -222,6 +223,7 @@ class SettingsRepository(
                 CalloutStyle.entries.firstOrNull { it.name == prefs[Keys.callerCalloutStyle] }
                     ?: defaults.calloutStyle,
             speechRate = prefs[Keys.callerSpeechRate] ?: defaults.speechRate,
+            voice = Voice.entries.firstOrNull { it.name == prefs[Keys.callerVoice] } ?: defaults.voice,
             sessionLengthMs = prefs[Keys.callerSessionLength]?.takeIf { it > 0L },
             tapBehavior = timer.tapBehavior,
             keepScreenOn = timer.keepScreenOn,
@@ -251,6 +253,7 @@ class SettingsRepository(
         prefs[Keys.callerStance] = settings.stance.name
         prefs[Keys.callerCalloutStyle] = settings.calloutStyle.name
         prefs[Keys.callerSpeechRate] = settings.speechRate
+        prefs[Keys.callerVoice] = settings.voice.name
         prefs[Keys.callerSessionLength] = settings.sessionLengthMs ?: UNLIMITED_LENGTH
         prefs[Keys.tapBehavior] = settings.tapBehavior.name
         prefs[Keys.keepScreenOn] = settings.keepScreenOn
@@ -334,6 +337,7 @@ class SettingsRepository(
         val callerSpeechRate = floatPreferencesKey("caller_speech_rate")
         val callerSessionLength = longPreferencesKey("caller_session_length_ms")
         val callerWeights = stringSetPreferencesKey("caller_weights")
+        val callerVoice = stringPreferencesKey("caller_voice")
         val callerCombos = booleanPreferencesKey("caller_combos")
         val callerMaxComboLength = intPreferencesKey("caller_max_combo_length")
         val callerComboLengthWeights = stringPreferencesKey("caller_combo_length_weights")

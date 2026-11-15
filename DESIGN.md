@@ -180,7 +180,13 @@ phone.
   two".
 - Optional: a recorded voice pack (bundled `.ogg` clips) for lower latency
   and a more coach-like delivery. Short clips are loaded into `SoundPool` so
-  they play the instant they are called.
+  they play the instant they are called. There is one clip per word (one to
+  six, body, jab, cross, left, right, hook, uppercut), stitched into a call
+  with tight gaps. Speech rate tightens the gaps; the clips always play at
+  normal speed, so the pitch never changes. The clips go in
+  `app/src/main/assets/voice/` (see `tools/voice/README.md`). Until every word
+  has one, the bundled voice can't be chosen, and any call it can't say falls
+  back to the system voice.
 - Optional: say the punch name instead of the number ("jab", "rear hook
   body"). Useful for beginners still learning the numbers.
 

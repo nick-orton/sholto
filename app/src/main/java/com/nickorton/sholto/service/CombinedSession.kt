@@ -6,7 +6,6 @@ import com.nickorton.sholto.audio.CuePlayer
 import com.nickorton.sholto.data.CombinedSettings
 import com.nickorton.sholto.data.TimerSettings
 import com.nickorton.sholto.engine.CallScheduler
-import com.nickorton.sholto.engine.CallTiming
 import com.nickorton.sholto.engine.Clock
 import com.nickorton.sholto.engine.Combo
 import com.nickorton.sholto.engine.ElapsedRealtimeClock
@@ -132,7 +131,7 @@ class CombinedSession(
                 config = s.timer.round,
                 punches = PunchEngine(c.punch, randomFactory()),
                 finalPushFactor = s.finalPush.meanFactor,
-                speechMs = { CallTiming.speechMs(it.spokenText(c.calloutStyle, c.stance), c.speechRate) },
+                speechMs = { announcer.speechMs(it, c.callout) },
             )
         scheduler = newScheduler
         nextCall = newScheduler.firstCall()
@@ -235,8 +234,7 @@ class CombinedSession(
         if (playSounds) {
             planner.cuesFor(changes, state).forEach(sessionPlayer::play)
             if (call != null) {
-                val c = session.caller
-                announcer.announce(call, c.calloutStyle, c.stance, c.speechRate)
+                announcer.announce(call, session.caller.callout)
             }
         }
         if (state.status == SessionStatus.Finished || state.status == SessionStatus.Stopped) stopTicker()
