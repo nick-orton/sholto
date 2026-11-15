@@ -172,3 +172,50 @@ object CallerPresets {
 
     fun active(config: PunchConfig): CallerPreset? = builtIn.firstOrNull { it.matches(config) }
 }
+
+/**
+ * A combined-mode preset: a timer preset paired with a caller difficulty
+ * preset (PLAN.md M8). Applying it applies both.
+ */
+data class CombinedPreset(
+    val id: String,
+    val timer: Preset,
+    val caller: CallerPreset,
+) {
+    val name: String get() = combinedName(timer.name, caller.name)
+
+    fun matches(
+        round: RoundConfig,
+        punch: PunchConfig,
+    ): Boolean = timer.matches(round) && caller.matches(punch)
+}
+
+/** How Home and settings name a timer and caller setup together, e.g. `Pro + Advanced`. */
+fun combinedName(
+    timerName: String,
+    callerName: String,
+): String = "$timerName + $callerName"
+
+/** The built-in combined presets. */
+object CombinedPresets {
+    val builtIn: List<CombinedPreset> =
+        listOf(
+            pair("amateur", "beginner"),
+            pair("pro", "intermediate"),
+            pair("hiit", "advanced"),
+        )
+
+    fun active(
+        round: RoundConfig,
+        punch: PunchConfig,
+    ): CombinedPreset? = builtIn.firstOrNull { it.matches(round, punch) }
+
+    private fun pair(
+        timerId: String,
+        callerId: String,
+    ) = CombinedPreset(
+        id = "${timerId}_$callerId",
+        timer = Presets.builtIn.single { it.id == timerId },
+        caller = CallerPresets.builtIn.single { it.id == callerId },
+    )
+}

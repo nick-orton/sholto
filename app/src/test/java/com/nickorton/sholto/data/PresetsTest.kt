@@ -1,5 +1,6 @@
 package com.nickorton.sholto.data
 
+import com.nickorton.sholto.engine.PunchConfig
 import com.nickorton.sholto.engine.RoundConfig
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -41,5 +42,25 @@ class PresetsTest {
         // Renaming a preset to its own name (or case variant) is allowed.
         assertNull(Presets.nameError("Sparring", user, renamingId = "u1"))
         assertNull(Presets.nameError("Bag work", user))
+    }
+
+    @Test
+    fun `combined presets pair existing presets and match only both halves`() {
+        val names = CombinedPresets.builtIn.map { it.name }
+        assertEquals(listOf("Amateur + Beginner", "Pro + Intermediate", "HIIT + Advanced"), names)
+        val hiit = CombinedPresets.builtIn.last()
+        val round = hiit.timer.applyTo(RoundConfig())
+        val punch = hiit.caller.applyTo(PunchConfig())
+        assertEquals(hiit, CombinedPresets.active(round, punch))
+        assertNull(CombinedPresets.active(round, PunchConfig(meanGapMs = 5_000L)))
+    }
+
+    @Test
+    fun `final push factor stays in range and on tenths`() {
+        assertEquals(0.3f, FinalPush().withFactor(0.05f).factor)
+        assertEquals(0.9f, FinalPush().withFactor(1.5f).factor)
+        assertEquals(0.7f, CombinedLimits.stepPushFactorUp(0.6f))
+        assertEquals(1.0, FinalPush(enabled = false).meanFactor, 0.0)
+        assertEquals(0.6, FinalPush().meanFactor, 1e-6)
     }
 }
