@@ -13,9 +13,13 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,17 +28,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nickorton.sholto.R
 import com.nickorton.sholto.ui.theme.SholtoTheme
 
+/** The workout modes available on the home screen (PLAN.md M7; Combined comes in M8). */
+enum class WorkoutMode {
+    Timer,
+    Caller,
+}
+
 /**
- * Home: the app name, active preset and summary of the timer settings, a
- * settings gear in the top right, and a big START button filling the lower
- * half (or the right half in landscape).
+ * Home: the app name, workout mode selector, active preset and summary of the
+ * selected mode's settings, a settings gear in the top right, and a big START
+ * button filling the lower half (or the right half in landscape).
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     presetName: String,
@@ -42,6 +54,8 @@ fun HomeScreen(
     onStart: () -> Unit,
     onSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    mode: WorkoutMode = WorkoutMode.Timer,
+    onModeChange: (WorkoutMode) -> Unit = {},
 ) {
     Surface(modifier = modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize().safeDrawingPadding()) {
@@ -57,13 +71,35 @@ fun HomeScreen(
                             style = MaterialTheme.typography.displayLarge,
                             fontWeight = FontWeight.Black,
                         )
+                        val modes =
+                            listOf(
+                                WorkoutMode.Timer to R.string.mode_timer,
+                                WorkoutMode.Caller to R.string.mode_caller,
+                            )
+                        SingleChoiceSegmentedButtonRow(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                        ) {
+                            modes.forEachIndexed { index, (item, label) ->
+                                SegmentedButton(
+                                    selected = mode == item,
+                                    onClick = { onModeChange(item) },
+                                    shape = SegmentedButtonDefaults.itemShape(index, modes.size),
+                                ) {
+                                    Text(stringResource(label))
+                                }
+                            }
+                        }
                         Text(
                             text = presetName,
                             style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,
                         )
-                        Text(text = summary, style = MaterialTheme.typography.headlineSmall)
+                        Text(
+                            text = summary,
+                            style = MaterialTheme.typography.headlineSmall,
+                            textAlign = TextAlign.Center,
+                        )
                     }
                 }
                 val start: @Composable (Modifier) -> Unit = { m ->

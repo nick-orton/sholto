@@ -2,6 +2,9 @@ package com.nickorton.sholto.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nickorton.sholto.data.CallerPreset
+import com.nickorton.sholto.data.CallerPresets
+import com.nickorton.sholto.data.CallerSettings
 import com.nickorton.sholto.data.Preset
 import com.nickorton.sholto.data.PresetNameError
 import com.nickorton.sholto.data.Presets
@@ -16,37 +19,62 @@ import kotlinx.coroutines.launch
 /**
  * What the settings screen and Home show.
  *
- * @property activePreset The preset the settings match, or null for Custom.
+ * @property activePreset The timer preset the settings match, or null for Custom.
+ * @property activeCallerPreset The caller difficulty preset the settings match, or null for Custom.
  */
 data class SettingsUiState(
     val settings: TimerSettings,
     val userPresets: List<Preset>,
     val activePreset: Preset?,
+    val callerSettings: CallerSettings = CallerSettings(),
+    val activeCallerPreset: CallerPreset? = CallerPresets.active(callerSettings.punch),
 ) {
     val builtInPresets: List<Preset> get() = Presets.builtIn
 
     val activePresetName: String get() = activePreset?.name ?: Presets.CUSTOM_NAME
+
+    val callerPresets: List<CallerPreset> get() = CallerPresets.builtIn
+
+    val activeCallerPresetName: String get() = activeCallerPreset?.name ?: Presets.CUSTOM_NAME
 }
 
 /**
- * Edits the timer settings and presets. Every change is saved right away,
- * so there's no Save button to forget.
+ * Edits the timer and punch-caller settings and presets. Every change is saved
+ * right away, so there's no Save button to forget.
  */
 class SettingsViewModel(
     private val repository: SettingsRepository,
 ) : ViewModel() {
     /** Null until the saved settings have been read. */
     val uiState: StateFlow<SettingsUiState?> =
-        combine(repository.settings, repository.userPresets) { settings, presets ->
-            SettingsUiState(settings, presets, Presets.active(settings.round, presets))
+        combine(
+            repository.settings,
+            repository.userPresets,
+            repository.callerSettings,
+        ) { settings, presets, callerSettings ->
+            SettingsUiState(
+                settings = settings,
+                userPresets = presets,
+                activePreset = Presets.active(settings.round, presets),
+                callerSettings = callerSettings,
+                activeCallerPreset = CallerPresets.active(callerSettings.punch),
+            )
         }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     fun update(transform: (TimerSettings) -> TimerSettings) {
         viewModelScope.launch { repository.updateSettings(transform) }
     }
 
+    fun updateCaller(transform: (CallerSettings) -> CallerSettings) {
+        viewModelScope.launch { repository.updateCallerSettings(transform) }
+    }
+
     fun applyPreset(preset: Preset) {
         viewModelScope.launch { repository.applyPreset(preset) }
+    }
+
+    fun applyCallerPreset(preset: CallerPreset) {
+        viewModelScope.launch { repository.applyCallerPreset(preset) }
     }
 
     /** Why [name] can't be used, or null if it can. */
