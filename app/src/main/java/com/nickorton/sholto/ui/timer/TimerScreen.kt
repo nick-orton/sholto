@@ -32,6 +32,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
@@ -127,24 +131,36 @@ internal fun PhaseHeader(
     state: TimerUiState.Running,
     style: PhaseStyle,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        if (style.icon != PhaseIcon.None) {
-            PhaseIconView(style.icon, style.content, Modifier.size(36.dp))
-            Spacer(Modifier.width(12.dp))
+    // One polite live region, so TalkBack says each new phase ("Rest, next
+    // round 4 of 12") once, without reading out every second of the countdown.
+    val announcement = phaseAnnouncement(state.phase, state.warningLengthMs, state.round, state.totalRounds)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier =
+            Modifier.clearAndSetSemantics {
+                contentDescription = announcement
+                liveRegion = LiveRegionMode.Polite
+            },
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (style.icon != PhaseIcon.None) {
+                PhaseIconView(style.icon, style.content, Modifier.size(36.dp))
+                Spacer(Modifier.width(12.dp))
+            }
+            Text(
+                text = phaseLabel(state.phase, state.warningLengthMs),
+                color = style.content,
+                fontSize = fixedSp(36.dp),
+                fontWeight = FontWeight.Black,
+            )
         }
         Text(
-            text = phaseLabel(state.phase, state.warningLengthMs),
+            text = roundLabel(state.phase, state.round, state.totalRounds),
             color = style.content,
-            fontSize = fixedSp(36.dp),
-            fontWeight = FontWeight.Black,
+            fontSize = fixedSp(24.dp),
+            fontWeight = FontWeight.Bold,
         )
     }
-    Text(
-        text = roundLabel(state.phase, state.round, state.totalRounds),
-        color = style.content,
-        fontSize = fixedSp(24.dp),
-        fontWeight = FontWeight.Bold,
-    )
 }
 
 /** The countdown, as large as fits: about 40% of the screen height in portrait. */

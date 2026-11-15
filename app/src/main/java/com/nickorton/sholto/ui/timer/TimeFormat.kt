@@ -89,6 +89,40 @@ fun roundLabel(
 }
 
 /**
+ * What TalkBack says when a phase starts, e.g. `Work, round 3 of 6`,
+ * `Last 30 seconds, round 3 of 6` or `Rest, next round 4`. Plain words,
+ * since "3 / 6" and "30 SEC" read badly aloud.
+ */
+fun phaseAnnouncement(
+    phase: Phase,
+    warningLengthMs: Long,
+    round: Int,
+    totalRounds: Int?,
+): String {
+    fun roundOf(n: Int) = if (totalRounds == null) "round $n" else "round $n of $totalRounds"
+    return when (phase) {
+        Phase.GetReady -> "Get ready, ${roundOf(round)}"
+        Phase.Work -> "Work, ${roundOf(round)}"
+        Phase.Warning -> "Last ${spokenDuration(warningLengthMs)}, ${roundOf(round)}"
+        Phase.Rest -> "Rest, next ${roundOf(round + 1)}"
+        Phase.Done -> "Done"
+    }
+}
+
+/** A duration in words, e.g. `30 seconds`, `1 minute` or `1 minute 30 seconds`. */
+private fun spokenDuration(ms: Long): String {
+    val total = ms / 1000L
+    val minutes = total / 60
+    val seconds = total % 60
+    val parts =
+        listOfNotNull(
+            minutes.takeIf { it > 0 }?.let { if (it == 1L) "1 minute" else "$it minutes" },
+            seconds.takeIf { it > 0 || minutes == 0L }?.let { if (it == 1L) "1 second" else "$it seconds" },
+        )
+    return parts.joinToString(" ")
+}
+
+/**
  * The ongoing notification title, e.g. `WORK · 2:15` or `PAUSED · 2:15`.
  */
 fun notificationTitle(state: TimerUiState.Running): String {

@@ -127,4 +127,15 @@ class TimeFormatTest {
         assertEquals("PAUSED · 0:15", callerNotificationTitle(pausedUntilStopped))
         assertEquals("PUNCH CALLER · 7 calls", callerNotificationText(pausedUntilStopped))
     }
+
+    @Test
+    fun `phase announcements read naturally aloud`() {
+        assertEquals("Get ready, round 1 of 6", phaseAnnouncement(Phase.GetReady, 30_000L, 1, 6))
+        assertEquals("Work, round 3 of 6", phaseAnnouncement(Phase.Work, 30_000L, 3, 6))
+        assertEquals("Last 30 seconds, round 3 of 6", phaseAnnouncement(Phase.Warning, 30_000L, 3, 6))
+        assertEquals("Last 1 minute, round 3", phaseAnnouncement(Phase.Warning, 60_000L, 3, null))
+        assertEquals("Last 1 minute 30 seconds, round 2", phaseAnnouncement(Phase.Warning, 90_000L, 2, null))
+        assertEquals("Rest, next round 4 of 12", phaseAnnouncement(Phase.Rest, 30_000L, 3, 12))
+        assertEquals("Done", phaseAnnouncement(Phase.Done, 30_000L, 12, 12))
+    }
 }
