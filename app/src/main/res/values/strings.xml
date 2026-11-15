@@ -59,4 +59,10 @@
     <string name="sound_round_end">Round end: triple bell</string>
     <string name="sound_countdown">Countdown: beeps</string>
     <string name="sound_session_done">Session done: long bell</string>
+
+    <!-- Ongoing workout notification -->
+    <string name="notification_channel_name">Workout session</string>
+    <string name="notification_channel_description">Shows the current phase, round and time left while a session runs</string>
+    <string name="notification_resume">Resume</string>
+    <string name="notification_stop">Stop</string>
 </resources>
