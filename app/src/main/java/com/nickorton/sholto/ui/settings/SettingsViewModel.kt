@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
  * @property activePreset The timer preset the settings match, or null for Custom.
  * @property activeCallerPreset The caller difficulty preset the settings match, or null for Custom.
  * @property finalPush Combined mode's faster calls during Warning.
+ * @property voicePackInstalled Recorded clips are bundled, so the bundled voice can be chosen.
  */
 data class SettingsUiState(
     val settings: TimerSettings,
@@ -34,6 +35,7 @@ data class SettingsUiState(
     val callerSettings: CallerSettings = CallerSettings(),
     val activeCallerPreset: CallerPreset? = CallerPresets.active(callerSettings.punch),
     val finalPush: FinalPush = FinalPush(),
+    val voicePackInstalled: Boolean = false,
 ) {
     val builtInPresets: List<Preset> get() = Presets.builtIn
 
@@ -58,6 +60,7 @@ data class SettingsUiState(
  */
 class SettingsViewModel(
     private val repository: SettingsRepository,
+    private val voicePackInstalled: Boolean = false,
 ) : ViewModel() {
     /** Null until the saved settings have been read. */
     val uiState: StateFlow<SettingsUiState?> =
@@ -74,6 +77,7 @@ class SettingsViewModel(
                 callerSettings = callerSettings,
                 activeCallerPreset = CallerPresets.active(callerSettings.punch),
                 finalPush = finalPush,
+                voicePackInstalled = voicePackInstalled,
             )
         }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 

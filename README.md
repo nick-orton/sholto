@@ -61,6 +61,12 @@ it again (it needs Python 3 and ffmpeg):
 python3 tools/sounds/generate_sounds.py
 ```
 
+## Bundled voice
+
+The punch caller can use recorded clips instead of text-to-speech. The clips
+aren't in the repository yet; [tools/voice/README.md](tools/voice/README.md)
+lists the words to record and how to turn recordings into clips.
+
 ## CI
 
 GitHub Actions runs `spotlessCheck`, `assembleDebug` and `test` on every pull

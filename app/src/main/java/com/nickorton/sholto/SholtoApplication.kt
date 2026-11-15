@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
+import com.nickorton.sholto.audio.VoicePackAnnouncer
 import com.nickorton.sholto.data.SettingsRepository
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -16,6 +17,9 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class SholtoApplication : Application() {
     lateinit var settingsRepository: SettingsRepository
         private set
+
+    /** Whether recorded clips are bundled for every word, so the bundled voice can be chosen. */
+    val voicePackInstalled: Boolean by lazy { VoicePackAnnouncer.isInstalled(this) }
 
     override fun onCreate() {
         super.onCreate()

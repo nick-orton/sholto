@@ -113,6 +113,12 @@
     <string name="allow_doubling_summary">The lead hand can throw twice in a row, e.g. 1 · 1 · 2 or 1 · 3</string>
 
     <string name="section_voice">Voice &amp; stance</string>
+    <string name="voice">Voice</string>
+    <string name="voice_system">System voice</string>
+    <string name="voice_bundled">Bundled voice</string>
+    <string name="voice_system_summary">The phone\'s text-to-speech</string>
+    <string name="voice_bundled_summary">Recorded clips: starts instantly and sounds natural in combos</string>
+    <string name="voice_bundled_missing">No recorded voice is installed in this build</string>
     <string name="stance">Stance</string>
     <string name="stance_orthodox">Orthodox</string>
     <string name="stance_southpaw">Southpaw</string>
