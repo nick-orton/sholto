@@ -14,7 +14,7 @@ class PunchEngineCallTest {
         n: Int = SAMPLES,
     ): List<Punch> {
         val engine = PunchEngine(config, Random(seed))
-        return List(n) { engine.nextCall() }
+        return List(n) { engine.nextCall().punches.single() }
     }
 
     @Test
@@ -93,7 +93,7 @@ class PunchEngineCallTest {
     fun theSameSeedGivesTheSameSequence() {
         val config = PunchConfig(avoidRepeats = true)
 
-        fun sequence(seed: Long): List<Pair<Long, Punch>> {
+        fun sequence(seed: Long): List<Pair<Long, Combo>> {
             val engine = PunchEngine(config, Random(seed))
             return List(1_000) { engine.nextGap() to engine.nextCall() }
         }

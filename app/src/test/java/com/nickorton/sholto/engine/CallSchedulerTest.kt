@@ -13,16 +13,23 @@ class CallSchedulerTest {
         punch: PunchConfig,
         push: Double = 1.0,
         seed: Long = 1L,
-    ) = CallScheduler(round, PunchEngine(punch, Random(seed)), push)
+        speechMs: (Combo) -> Long = { 0L },
+    ) = CallScheduler(round, PunchEngine(punch, Random(seed)), push, speechMs = speechMs)
+
+    /** Every call, up to [untilMs] for unlimited rounds. */
+    private fun scheduled(
+        s: CallScheduler,
+        untilMs: Long = Long.MAX_VALUE,
+    ): List<ScheduledCall> =
+        generateSequence(s.firstCall()) { s.nextCallAfter(it) }
+            .takeWhile { it.atMs < untilMs }
+            .toList()
 
     /** Every call time, up to [untilMs] for unlimited rounds. */
     private fun calls(
         s: CallScheduler,
         untilMs: Long = Long.MAX_VALUE,
-    ): List<Long> =
-        generateSequence(s.firstCallAt()) { s.nextCallAfter(it) }
-            .takeWhile { it < untilMs }
-            .toList()
+    ): List<Long> = scheduled(s, untilMs).map { it.atMs }
 
     /** Every time a cue can play: session start and each phase change. */
     private fun cueTimes(
@@ -186,10 +193,10 @@ class CallSchedulerTest {
     @Test
     fun `no calls after the last round`() {
         val round = RoundConfig(rounds = 3)
-        val times = calls(scheduler(round, PunchConfig()))
-        assertTrue(times.last() <= round.totalLengthMs!! - CallScheduler.BELL_GUARD_MS)
         val s = scheduler(round, PunchConfig())
-        assertNull(s.nextCallAfter(times.last()))
+        val all = scheduled(s)
+        assertTrue(all.last().atMs <= round.totalLengthMs!! - CallScheduler.BELL_GUARD_MS)
+        assertNull(s.nextCallAfter(all.last()))
     }
 
     @Test(timeout = 5_000L)
@@ -198,7 +205,7 @@ class CallSchedulerTest {
         // 1 s clear of both bells, in any round, forever.
         val round = RoundConfig(roundLengthMs = 30_000L, warningLengthMs = 15_000L, restLengthMs = 15_000L, rounds = null)
         val punch = PunchConfig(meanGapMs = 15_000L, minGapMs = 15_000L, maxGapMs = 15_000L, distribution = GapDistribution.Fixed)
-        assertNull(scheduler(round, punch, push = 0.6).firstCallAt())
+        assertNull(scheduler(round, punch, push = 0.6).firstCall())
     }
 
     @Test
@@ -206,5 +213,61 @@ class CallSchedulerTest {
         val a = calls(scheduler(RoundConfig(rounds = 3), PunchConfig(), push = 0.6, seed = 7L))
         val b = calls(scheduler(RoundConfig(rounds = 3), PunchConfig(), push = 0.6, seed = 7L))
         assertEquals(a, b)
+    }
+
+    @Test
+    fun `the wait after a combo starts once it has been said and thrown`() {
+        // Every call is a 2-punch combo taking 0.6 s to say, then 0.8 s to throw.
+        val pairs = fixed3s.copy(combos = true, maxComboLength = 2, comboLengthWeights = listOf(0, 1, 0, 0, 0, 0))
+        val all = scheduled(scheduler(twoShortRounds, pairs, speechMs = { 600L }))
+        assertTrue(all.all { it.combo.size == 2 })
+        assertEquals(
+            listOf(8_000L, 12_400L, 16_800L, 21_200L, 38_000L, 42_400L, 46_800L, 51_200L),
+            all.map { it.atMs },
+        )
+    }
+
+    @Test
+    fun `a call's speech ends at least 1 s before the next bell`() {
+        val times = calls(scheduler(twoShortRounds, fixed3s, speechMs = { 1_500L }))
+        assertEquals(
+            listOf(
+                8_000L,
+                11_000L,
+                14_000L,
+                // Said from 17 s to 18.5 s, 1.5 s before the clacks at 20 s.
+                17_000L,
+                // 24 s would talk until 25.5 s, over the bell: moved past it,
+                // into rest, so dropped.
+                21_000L,
+                38_000L,
+                41_000L,
+                44_000L,
+                47_000L,
+                51_000L,
+            ),
+            times,
+        )
+    }
+
+    @Test
+    fun `long combos in names never talk over a bell`() {
+        val round = RoundConfig(roundLengthMs = 60_000L, warningLengthMs = 10_000L, restLengthMs = 20_000L, rounds = 20)
+        val punch = PunchConfig(meanGapMs = 1_500L, minGapMs = 300L, combos = true, maxComboLength = 6, naturalOnly = true)
+        val speech = { c: Combo -> CallTiming.speechMs(c.spokenText(CalloutStyle.Both, Stance.Orthodox), 0.8f) }
+        val timeline = RoundTimeline(round)
+        for (seed in 1L..10L) {
+            val all = scheduled(scheduler(round, punch, push = 0.6, seed = seed, speechMs = speech))
+            assertTrue(all.isNotEmpty())
+            for (call in all) {
+                val span = timeline.spanAt(call.atMs)
+                assertTrue("$call starts too soon", call.atMs >= span.startMs + CallScheduler.BELL_GUARD_MS)
+                assertTrue("$call ends too late", call.atMs + speech(call.combo) <= span.endMs - CallScheduler.BELL_GUARD_MS)
+            }
+            // No call starts before the one before it has been said and thrown.
+            all.zipWithNext().forEach { (a, b) ->
+                assertTrue("$b overlaps $a", b.atMs >= a.atMs + CallTiming.busyMs(a.combo, speech(a.combo)))
+            }
+        }
     }
 }
