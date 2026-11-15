@@ -35,11 +35,20 @@ import androidx.compose.ui.unit.sp
 import com.nickorton.sholto.R
 import com.nickorton.sholto.ui.theme.SholtoTheme
 
-/** The workout modes available on the home screen (PLAN.md M7; Combined comes in M8). */
+/** The workout modes available on the home screen. */
 enum class WorkoutMode {
     Timer,
     Caller,
+    Combined,
 }
+
+/** Each mode with its label, in the order the mode selectors show them. */
+val workoutModes =
+    listOf(
+        WorkoutMode.Timer to R.string.mode_timer,
+        WorkoutMode.Caller to R.string.mode_caller,
+        WorkoutMode.Combined to R.string.mode_combined,
+    )
 
 /**
  * Home: the app name, workout mode selector, active preset and summary of the
@@ -71,11 +80,7 @@ fun HomeScreen(
                             style = MaterialTheme.typography.displayLarge,
                             fontWeight = FontWeight.Black,
                         )
-                        val modes =
-                            listOf(
-                                WorkoutMode.Timer to R.string.mode_timer,
-                                WorkoutMode.Caller to R.string.mode_caller,
-                            )
+                        val modes = workoutModes
                         SingleChoiceSegmentedButtonRow(
                             modifier = Modifier.padding(vertical = 12.dp),
                         ) {

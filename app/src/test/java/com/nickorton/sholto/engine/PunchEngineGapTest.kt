@@ -124,6 +124,31 @@ class PunchEngineGapTest {
         assertTrue("slow $slow vs fast $fast", slow > 3 * fast)
     }
 
+    @Test
+    fun meanFactorScalesTheMean() {
+        val config = PunchConfig(meanGapMs = 3.s, minGapMs = 300L, maxGapMs = 30.s)
+        val engine = PunchEngine(config, Random(SEED))
+        val pushed = List(SAMPLES) { engine.nextGap(meanFactor = 0.6) }.average()
+        val normal = gaps(config).average()
+        val ratio = pushed / normal
+        assertTrue("ratio $ratio", ratio in 0.56..0.64)
+    }
+
+    @Test
+    fun meanFactorNeverGoesBelowTheMinGap() {
+        val fixed = PunchConfig(meanGapMs = 3.s, minGapMs = 1.s, maxGapMs = 8.s, distribution = GapDistribution.Fixed)
+        val engine = PunchEngine(fixed, Random(SEED))
+        assertEquals(1_800L, engine.nextGap(meanFactor = 0.6))
+        assertEquals(1_000L, engine.nextGap(meanFactor = 0.1))
+
+        // Uniform stays symmetric around the scaled mean: 1.5 s ± 0.5 s.
+        val uniform = fixed.copy(distribution = GapDistribution.Uniform)
+        val u = PunchEngine(uniform, Random(SEED))
+        val samples = List(SAMPLES) { u.nextGap(meanFactor = 0.5) }
+        assertTrue(samples.all { it in 1_000L..2_000L })
+        assertClose(1_500.0, samples.average(), 20.0, "uniform pushed mean")
+    }
+
     private companion object {
         const val SEED = 20_261_114L
         const val SAMPLES = 10_000

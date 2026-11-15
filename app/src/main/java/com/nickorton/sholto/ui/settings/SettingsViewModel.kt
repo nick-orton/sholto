@@ -5,11 +5,15 @@ import androidx.lifecycle.viewModelScope
 import com.nickorton.sholto.data.CallerPreset
 import com.nickorton.sholto.data.CallerPresets
 import com.nickorton.sholto.data.CallerSettings
+import com.nickorton.sholto.data.CombinedPreset
+import com.nickorton.sholto.data.CombinedPresets
+import com.nickorton.sholto.data.FinalPush
 import com.nickorton.sholto.data.Preset
 import com.nickorton.sholto.data.PresetNameError
 import com.nickorton.sholto.data.Presets
 import com.nickorton.sholto.data.SettingsRepository
 import com.nickorton.sholto.data.TimerSettings
+import com.nickorton.sholto.data.combinedName
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -21,6 +25,7 @@ import kotlinx.coroutines.launch
  *
  * @property activePreset The timer preset the settings match, or null for Custom.
  * @property activeCallerPreset The caller difficulty preset the settings match, or null for Custom.
+ * @property finalPush Combined mode's faster calls during Warning.
  */
 data class SettingsUiState(
     val settings: TimerSettings,
@@ -28,6 +33,7 @@ data class SettingsUiState(
     val activePreset: Preset?,
     val callerSettings: CallerSettings = CallerSettings(),
     val activeCallerPreset: CallerPreset? = CallerPresets.active(callerSettings.punch),
+    val finalPush: FinalPush = FinalPush(),
 ) {
     val builtInPresets: List<Preset> get() = Presets.builtIn
 
@@ -36,6 +42,14 @@ data class SettingsUiState(
     val callerPresets: List<CallerPreset> get() = CallerPresets.builtIn
 
     val activeCallerPresetName: String get() = activeCallerPreset?.name ?: Presets.CUSTOM_NAME
+
+    val combinedPresets: List<CombinedPreset> get() = CombinedPresets.builtIn
+
+    val activeCombinedPreset: CombinedPreset?
+        get() = CombinedPresets.active(settings.round, callerSettings.punch)
+
+    /** What Home calls the combined setup, e.g. `Pro + Intermediate` or `Custom + Advanced`. */
+    val combinedName: String get() = combinedName(activePresetName, activeCallerPresetName)
 }
 
 /**
@@ -51,13 +65,15 @@ class SettingsViewModel(
             repository.settings,
             repository.userPresets,
             repository.callerSettings,
-        ) { settings, presets, callerSettings ->
+            repository.finalPush,
+        ) { settings, presets, callerSettings, finalPush ->
             SettingsUiState(
                 settings = settings,
                 userPresets = presets,
                 activePreset = Presets.active(settings.round, presets),
                 callerSettings = callerSettings,
                 activeCallerPreset = CallerPresets.active(callerSettings.punch),
+                finalPush = finalPush,
             )
         }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
@@ -67,6 +83,14 @@ class SettingsViewModel(
 
     fun updateCaller(transform: (CallerSettings) -> CallerSettings) {
         viewModelScope.launch { repository.updateCallerSettings(transform) }
+    }
+
+    fun updateFinalPush(transform: (FinalPush) -> FinalPush) {
+        viewModelScope.launch { repository.updateFinalPush(transform) }
+    }
+
+    fun applyCombinedPreset(preset: CombinedPreset) {
+        viewModelScope.launch { repository.applyCombinedPreset(preset) }
     }
 
     fun applyPreset(preset: Preset) {

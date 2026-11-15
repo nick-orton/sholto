@@ -57,6 +57,9 @@ import com.nickorton.sholto.audio.Cue
 import com.nickorton.sholto.data.CallerLimits
 import com.nickorton.sholto.data.CallerPreset
 import com.nickorton.sholto.data.CallerSettings
+import com.nickorton.sholto.data.CombinedLimits
+import com.nickorton.sholto.data.CombinedPreset
+import com.nickorton.sholto.data.FinalPush
 import com.nickorton.sholto.data.LengthRange
 import com.nickorton.sholto.data.Preset
 import com.nickorton.sholto.data.PresetNameError
@@ -71,9 +74,11 @@ import com.nickorton.sholto.engine.PunchConfig
 import com.nickorton.sholto.engine.RoundConfig
 import com.nickorton.sholto.engine.Stance
 import com.nickorton.sholto.ui.home.WorkoutMode
+import com.nickorton.sholto.ui.home.workoutModes
 import com.nickorton.sholto.ui.theme.SholtoTheme
 import com.nickorton.sholto.ui.timer.formatCallerSummary
 import com.nickorton.sholto.ui.timer.formatDuration
+import com.nickorton.sholto.ui.timer.formatPushFactor
 import com.nickorton.sholto.ui.timer.formatSecondsTenths
 import com.nickorton.sholto.ui.timer.formatSpeechRate
 import com.nickorton.sholto.ui.timer.formatSummary
@@ -111,6 +116,8 @@ fun SettingsScreen(
     initialMode: WorkoutMode = WorkoutMode.Timer,
     onUpdateCaller: ((CallerSettings) -> CallerSettings) -> Unit = {},
     onApplyCallerPreset: (CallerPreset) -> Unit = {},
+    onUpdateFinalPush: ((FinalPush) -> FinalPush) -> Unit = {},
+    onApplyCombinedPreset: (CombinedPreset) -> Unit = {},
 ) {
     var dialog by remember { mutableStateOf<PresetDialog?>(null) }
     var mode by rememberSaveable { mutableStateOf(initialMode) }
@@ -135,11 +142,7 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            val modes =
-                listOf(
-                    WorkoutMode.Timer to R.string.mode_timer,
-                    WorkoutMode.Caller to R.string.mode_caller,
-                )
+            val modes = workoutModes
             SingleChoiceSegmentedButtonRow(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
             ) {
@@ -185,6 +188,19 @@ fun SettingsScreen(
                     CallerSessionLengthSection(state.callerSettings, onUpdateCaller)
                     SectionDivider()
                     CallerSessionBehaviorSection(state.callerSettings, onUpdateCaller)
+                }
+
+                WorkoutMode.Combined -> {
+                    CombinedPresetsSection(state = state, onApply = onApplyCombinedPreset)
+                    SectionDivider()
+                    FinalPushSection(state.finalPush, onUpdateFinalPush)
+                    SectionDivider()
+                    Text(
+                        text = stringResource(R.string.combined_uses_settings),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 16.dp),
+                    )
                 }
             }
             Spacer(Modifier.heightIn(min = 24.dp))
@@ -539,6 +555,57 @@ private fun CallerPresetsSection(
             selected = true,
             onClick = {},
             menu = null,
+        )
+    }
+}
+
+@Composable
+private fun CombinedPresetsSection(
+    state: SettingsUiState,
+    onApply: (CombinedPreset) -> Unit,
+) {
+    SectionTitle(stringResource(R.string.presets))
+    state.combinedPresets.forEach { preset ->
+        PresetRow(
+            name = preset.name,
+            summary = formatSummary(preset.timer.applyTo(RoundConfig())) + " · " + formatSecondsTenths(preset.caller.meanGapMs) + " mean",
+            selected = preset.id == state.activeCombinedPreset?.id,
+            onClick = { onApply(preset) },
+            menu = null,
+        )
+    }
+    if (state.activeCombinedPreset == null) {
+        PresetRow(
+            name = state.combinedName,
+            summary = formatSummary(state.settings.round) + " · " + formatSecondsTenths(state.callerSettings.punch.meanGapMs) + " mean",
+            selected = true,
+            onClick = {},
+            menu = null,
+        )
+    }
+}
+
+@Composable
+private fun FinalPushSection(
+    push: FinalPush,
+    onUpdate: ((FinalPush) -> FinalPush) -> Unit,
+) {
+    SectionTitle(stringResource(R.string.section_final_push))
+    SwitchRow(
+        label = stringResource(R.string.final_push),
+        summary = stringResource(R.string.final_push_summary),
+        checked = push.enabled,
+        onCheckedChange = { on -> onUpdate { it.copy(enabled = on) } },
+    )
+    if (push.enabled) {
+        Stepper(
+            label = stringResource(R.string.final_push_factor),
+            summary = stringResource(R.string.final_push_factor_summary),
+            value = formatPushFactor(push.factor),
+            canDecrease = CombinedLimits.canStepPushFactorDown(push.factor),
+            canIncrease = CombinedLimits.canStepPushFactorUp(push.factor),
+            onDecrease = { onUpdate { it.withFactor(CombinedLimits.stepPushFactorDown(it.factor)) } },
+            onIncrease = { onUpdate { it.withFactor(CombinedLimits.stepPushFactorUp(it.factor)) } },
         )
     }
 }

@@ -69,6 +69,7 @@
     <!-- Modes & Punch Caller -->
     <string name="mode_timer">Timer</string>
     <string name="mode_caller">Punch Caller</string>
+    <string name="mode_combined">Combined</string>
     <string name="caller_ready">READY</string>
     <string name="calls_made">Calls made</string>
     <string name="calls_counter">Calls: %1$d</string>
@@ -104,4 +105,12 @@
     <string name="until_stopped">Until stopped</string>
     <string name="until_stopped_summary">Keep calling punches until you end the session</string>
     <string name="session_duration">Duration</string>
+
+    <!-- Combined settings -->
+    <string name="section_final_push">Final push</string>
+    <string name="final_push">Faster calls in the warning</string>
+    <string name="final_push_summary">Calls speed up for the last part of each round</string>
+    <string name="final_push_factor">Gap multiplier</string>
+    <string name="final_push_factor_summary">Lower is faster. The min gap still applies.</string>
+    <string name="combined_uses_settings">Combined mode runs the punch caller inside the round timer. Rounds and sounds come from the Timer tab; pacing, punches and voice from the Punch Caller tab. Calls stop for rest and never come within 1 second of a bell.</string>
 </resources>

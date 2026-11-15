@@ -174,4 +174,29 @@ class SettingsRepositoryTest {
             assertEquals(false, restored.keepScreenOn)
             scope2.cancel()
         }
+
+    @Test
+    fun `final push persists and combined presets apply both halves in one write`() =
+        runTest {
+            val file = tempFolder.newFile("combined.preferences_pb")
+            val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
+            val repo = SettingsRepository(PreferenceDataStoreFactory.create(scope = scope) { file })
+
+            assertEquals(CombinedSettings(), repo.combinedSettings.first())
+
+            repo.updateFinalPush { it.copy(enabled = false).withFactor(0.42f) }
+            assertEquals(FinalPush(enabled = false, factor = 0.4f), repo.finalPush.first())
+
+            val preset = CombinedPresets.builtIn.single { it.id == "pro_intermediate" }
+            repo.updateCallerSettings { it.withStance(Stance.Southpaw) }
+            repo.applyCombinedPreset(preset)
+            val combined = repo.combinedSettings.first()
+            assertEquals(preset, CombinedPresets.active(combined.timer.round, combined.caller.punch))
+            assertEquals("Pro + Intermediate", preset.name)
+            // Only the formats change: stance, get ready and final push stay.
+            assertEquals(Stance.Southpaw, combined.caller.stance)
+            assertEquals(RoundConfig().getReadyLengthMs, combined.timer.round.getReadyLengthMs)
+            assertEquals(FinalPush(enabled = false, factor = 0.4f), combined.finalPush)
+            scope.cancel()
+        }
 }

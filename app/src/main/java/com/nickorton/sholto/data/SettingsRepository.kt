@@ -26,7 +26,7 @@ import java.io.IOException
 import java.util.UUID
 
 /**
- * Timer settings and user presets, stored in Preferences DataStore so they
+ * Timer, punch-caller and combined settings and user presets, stored in Preferences DataStore so they
  * survive force-stop and reboot.
  *
  * Every write goes through a single [DataStore.edit], so it's atomic. Missing
@@ -47,6 +47,14 @@ class SettingsRepository(
 
     val callerSettings: Flow<CallerSettings> = preferences.map(::readCallerSettings).distinctUntilChanged()
 
+    val finalPush: Flow<FinalPush> = preferences.map(::readFinalPush).distinctUntilChanged()
+
+    /** The timer, caller and final-push settings a combined session uses. */
+    val combinedSettings: Flow<CombinedSettings> =
+        preferences
+            .map { CombinedSettings(readSettings(it), readCallerSettings(it), readFinalPush(it)) }
+            .distinctUntilChanged()
+
     /** Your own presets, oldest first. */
     val userPresets: Flow<List<Preset>> = preferences.map(::readPresets).distinctUntilChanged()
 
@@ -66,6 +74,20 @@ class SettingsRepository(
     /** Switches the punch caller to [preset], keeping stance, voice and session length. */
     suspend fun applyCallerPreset(preset: CallerPreset) {
         updateCallerSettings { it.copy(punch = preset.applyTo(it.punch)) }
+    }
+
+    suspend fun updateFinalPush(transform: (FinalPush) -> FinalPush) {
+        dataStore.edit { prefs -> writeFinalPush(prefs, transform(readFinalPush(prefs)).sanitized()) }
+    }
+
+    /** Switches to both halves of [preset] in one write. */
+    suspend fun applyCombinedPreset(preset: CombinedPreset) {
+        dataStore.edit { prefs ->
+            val timer = readSettings(prefs)
+            writeSettings(prefs, timer.copy(round = preset.timer.applyTo(timer.round)).sanitized())
+            val caller = readCallerSettings(prefs)
+            writeCallerSettings(prefs, caller.copy(punch = preset.caller.applyTo(caller.punch)).sanitized())
+        }
     }
 
     /**
@@ -222,6 +244,22 @@ class SettingsRepository(
         prefs[Keys.keepScreenOn] = settings.keepScreenOn
     }
 
+    private fun readFinalPush(prefs: Preferences): FinalPush {
+        val defaults = FinalPush()
+        return FinalPush(
+            enabled = prefs[Keys.finalPushEnabled] ?: defaults.enabled,
+            factor = prefs[Keys.finalPushFactor] ?: defaults.factor,
+        ).sanitized()
+    }
+
+    private fun writeFinalPush(
+        prefs: MutablePreferences,
+        push: FinalPush,
+    ) {
+        prefs[Keys.finalPushEnabled] = push.enabled
+        prefs[Keys.finalPushFactor] = push.factor
+    }
+
     private object Keys {
         val roundLength = longPreferencesKey("round_length_ms")
         val warningLength = longPreferencesKey("warning_length_ms")
@@ -245,6 +283,9 @@ class SettingsRepository(
         val callerCalloutStyle = stringPreferencesKey("caller_callout_style")
         val callerSpeechRate = floatPreferencesKey("caller_speech_rate")
         val callerSessionLength = longPreferencesKey("caller_session_length_ms")
+
+        val finalPushEnabled = booleanPreferencesKey("final_push_enabled")
+        val finalPushFactor = floatPreferencesKey("final_push_factor")
     }
 
     private companion object {

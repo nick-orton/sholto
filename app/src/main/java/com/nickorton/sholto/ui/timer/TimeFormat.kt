@@ -2,9 +2,12 @@ package com.nickorton.sholto.ui.timer
 
 import com.nickorton.sholto.data.CallerLimits
 import com.nickorton.sholto.data.CallerSettings
+import com.nickorton.sholto.data.CombinedLimits
+import com.nickorton.sholto.data.CombinedSettings
 import com.nickorton.sholto.engine.Phase
 import com.nickorton.sholto.engine.RoundConfig
 import com.nickorton.sholto.ui.caller.CallerUiState
+import com.nickorton.sholto.ui.combined.CombinedUiState
 
 /**
  * Time left in a phase, as `M:SS` (or `H:MM:SS`). It rounds up, so a fresh
@@ -39,6 +42,20 @@ fun formatCallerSummary(settings: CallerSettings): String {
     val length = settings.sessionLengthMs?.let(::formatDuration) ?: "∞"
     return "$mean · $punches · $length"
 }
+
+/**
+ * The Home summary for combined mode, on two lines: the rounds, then the
+ * pace, e.g. `3:00 × 6 · 1:00 rest` and `3.0 s mean · push 0.6×`.
+ */
+fun formatCombinedSummary(settings: CombinedSettings): String {
+    val mean = "${formatSecondsTenths(settings.caller.punch.meanGapMs)} mean"
+    val push = settings.finalPush
+    val pace = if (push.enabled) "$mean · push ${formatPushFactor(push.factor)}" else mean
+    return "${formatSummary(settings.timer.round)}\n$pace"
+}
+
+/** A final-push factor, e.g. `0.6×`. */
+fun formatPushFactor(factor: Float): String = "${CombinedLimits.clampPushFactor(factor)}×"
 
 /** The label for a phase, e.g. `WORK` or `30 SEC` (DESIGN.md §5.5). */
 fun phaseLabel(
@@ -101,6 +118,22 @@ fun callerNotificationTitle(state: CallerUiState.Running): String {
 fun callerNotificationText(state: CallerUiState.Running): String {
     val calls = if (state.callCount == 1) "1 call" else "${state.callCount} calls"
     return if (state.isPaused) "PUNCH CALLER · $calls" else calls
+}
+
+/**
+ * The ongoing notification title for combined mode: the timer's, plus the
+ * latest call while one is showing, e.g. `WORK · 2:15 · 3B`.
+ */
+fun combinedNotificationTitle(state: CombinedUiState.Running): String {
+    val title = notificationTitle(state.timer)
+    val call = state.currentCall
+    return if (call == null || state.isPaused) title else "$title · ${call.label}"
+}
+
+/** The ongoing notification subtitle for combined mode, e.g. `ROUND 3 / 6 · 14 calls`. */
+fun combinedNotificationText(state: CombinedUiState.Running): String {
+    val calls = if (state.callCount == 1) "1 call" else "${state.callCount} calls"
+    return "${notificationText(state.timer)} · $calls"
 }
 
 private fun warningLabel(warningLengthMs: Long): String {

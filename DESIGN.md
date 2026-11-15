@@ -262,6 +262,15 @@ the app is meant to be used on the bag.
   top, and the current punch call large in the center.
 - Callouts never overlap the bell. If a call would fire within 1 s of a phase
   change, it waits until after the bell.
+- Each round starts fresh: the first call comes one gap after the bell (and
+  at least 1 s after it). A call that would land in Rest is dropped.
+- When the pace changes at the warning (final push on), the wait restarts
+  from the clacks, so the faster calls begin right away.
+- Combined mode has no round or punch settings of its own. It uses the Timer
+  settings (rounds, sounds, vibration) and the Punch Caller settings (pacing,
+  punches, voice), plus the final push. Built-in combined presets pair a
+  timer preset with a difficulty preset: Amateur + Beginner,
+  Pro + Intermediate, HIIT + Advanced.
 
 ---
 
