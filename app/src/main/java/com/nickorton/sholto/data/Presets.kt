@@ -1,5 +1,8 @@
 package com.nickorton.sholto.data
 
+import com.nickorton.sholto.engine.GapDistribution
+import com.nickorton.sholto.engine.Punch
+import com.nickorton.sholto.engine.PunchConfig
 import com.nickorton.sholto.engine.RoundConfig
 
 /**
@@ -106,3 +109,66 @@ object Presets {
 }
 
 enum class PresetNameError { Blank, TooLong, Taken }
+
+/**
+ * A difficulty preset for the punch caller (DESIGN.md §3.5). Stance, callout
+ * style, speech rate and session length stay as you set them.
+ */
+data class CallerPreset(
+    val id: String,
+    val name: String,
+    val meanGapMs: Long,
+    val minGapMs: Long,
+    val maxGapMs: Long = 8_000L,
+    val distribution: GapDistribution,
+    val enabled: Set<Punch>,
+) {
+    fun matches(config: PunchConfig): Boolean =
+        config.meanGapMs == meanGapMs &&
+            config.minGapMs == minGapMs &&
+            config.maxGapMs == maxGapMs &&
+            config.distribution == distribution &&
+            config.enabled == enabled
+
+    fun applyTo(config: PunchConfig): PunchConfig =
+        config.copy(
+            meanGapMs = meanGapMs,
+            minGapMs = minGapMs,
+            maxGapMs = maxGapMs,
+            distribution = distribution,
+            enabled = enabled,
+        )
+}
+
+/** The built-in difficulty presets for the punch caller (DESIGN.md §3.5). */
+object CallerPresets {
+    val builtIn: List<CallerPreset> =
+        listOf(
+            CallerPreset(
+                id = "beginner",
+                name = "Beginner",
+                meanGapMs = 4_000L,
+                minGapMs = 2_000L,
+                distribution = GapDistribution.Uniform,
+                enabled = setOf(Punch.One, Punch.Two, Punch.Three, Punch.Four),
+            ),
+            CallerPreset(
+                id = "intermediate",
+                name = "Intermediate",
+                meanGapMs = 3_000L,
+                minGapMs = 1_000L,
+                distribution = GapDistribution.Exponential,
+                enabled = Punch.entries.toSet(),
+            ),
+            CallerPreset(
+                id = "advanced",
+                name = "Advanced",
+                meanGapMs = 1_800L,
+                minGapMs = 600L,
+                distribution = GapDistribution.Exponential,
+                enabled = Punch.entries.toSet(),
+            ),
+        )
+
+    fun active(config: PunchConfig): CallerPreset? = builtIn.firstOrNull { it.matches(config) }
+}

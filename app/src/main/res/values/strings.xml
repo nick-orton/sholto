@@ -65,4 +65,43 @@
     <string name="notification_channel_description">Shows the current phase, round and time left while a session runs</string>
     <string name="notification_resume">Resume</string>
     <string name="notification_stop">Stop</string>
+
+    <!-- Modes & Punch Caller -->
+    <string name="mode_timer">Timer</string>
+    <string name="mode_caller">Punch Caller</string>
+    <string name="caller_ready">READY</string>
+    <string name="calls_made">Calls made</string>
+    <string name="calls_counter">Calls: %1$d</string>
+
+    <!-- Caller Settings -->
+    <string name="section_difficulty">Difficulty presets</string>
+    <string name="section_pacing">Pacing</string>
+    <string name="mean_gap">Mean gap</string>
+    <string name="min_gap">Min gap</string>
+    <string name="max_gap">Max gap</string>
+    <string name="distribution">Distribution</string>
+    <string name="dist_exponential">Exponential</string>
+    <string name="dist_uniform">Uniform</string>
+    <string name="dist_normal">Normal</string>
+    <string name="dist_fixed">Fixed</string>
+    <string name="std_dev">Spread (std-dev)</string>
+
+    <string name="section_punches">Punch pool</string>
+    <string name="avoid_repeats">Avoid repeats</string>
+    <string name="avoid_repeats_summary">Never call the same punch twice in a row</string>
+
+    <string name="section_voice">Voice &amp; stance</string>
+    <string name="stance">Stance</string>
+    <string name="stance_orthodox">Orthodox</string>
+    <string name="stance_southpaw">Southpaw</string>
+    <string name="callout_style">Callout style</string>
+    <string name="style_numbers">Numbers</string>
+    <string name="style_names">Names</string>
+    <string name="style_both">Both</string>
+    <string name="speech_rate">Speech rate</string>
+
+    <string name="section_caller_session">Session length</string>
+    <string name="until_stopped">Until stopped</string>
+    <string name="until_stopped_summary">Keep calling punches until you end the session</string>
+    <string name="session_duration">Duration</string>
 </resources>

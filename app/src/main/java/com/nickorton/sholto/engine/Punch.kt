@@ -15,6 +15,18 @@ enum class Stance(
     Southpaw(lead = "Right", rear = "Left"),
 }
 
+/** How a punch call is spoken aloud (DESIGN.md §3.3, §3.5). */
+enum class CalloutStyle {
+    /** Spoken as a number, e.g. "three" or "three body". */
+    Numbers,
+
+    /** Spoken by name for the chosen stance, e.g. "left hook body". */
+    Names,
+
+    /** Number followed by name, e.g. "three body, left hook body". */
+    Both,
+}
+
 /**
  * The punch vocabulary from DESIGN.md §3.1: `1`–`6`, plus body shots
  * `1B`–`4B`. Odd numbers are lead-hand punches, even numbers rear-hand.
@@ -58,5 +70,33 @@ enum class Punch(
                 else -> "$side uppercut"
             }
         return if (body) "$base body" else base
+    }
+
+    /** The number spoken in words, e.g. `three` or `three body`. */
+    val spokenNumber: String
+        get() {
+            val word =
+                when (number) {
+                    1 -> "one"
+                    2 -> "two"
+                    3 -> "three"
+                    4 -> "four"
+                    5 -> "five"
+                    else -> "six"
+                }
+            return if (body) "$word body" else word
+        }
+
+    /** What the announcer says for [style] and [stance]. */
+    fun spokenText(
+        style: CalloutStyle,
+        stance: Stance,
+    ): String {
+        val name = fullName(stance).lowercase()
+        return when (style) {
+            CalloutStyle.Numbers -> spokenNumber
+            CalloutStyle.Names -> name
+            CalloutStyle.Both -> "$spokenNumber, $name"
+        }
     }
 }

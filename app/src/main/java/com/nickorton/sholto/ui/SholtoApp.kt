@@ -23,18 +23,25 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.nickorton.sholto.SholtoApplication
 import com.nickorton.sholto.data.Presets
 import com.nickorton.sholto.service.WorkoutServiceConnection
+import com.nickorton.sholto.ui.caller.CallerDoneScreen
+import com.nickorton.sholto.ui.caller.CallerScreen
+import com.nickorton.sholto.ui.caller.CallerUiState
+import com.nickorton.sholto.ui.caller.CallerViewModel
 import com.nickorton.sholto.ui.home.HomeScreen
+import com.nickorton.sholto.ui.home.WorkoutMode
 import com.nickorton.sholto.ui.settings.SettingsScreen
 import com.nickorton.sholto.ui.settings.SettingsViewModel
 import com.nickorton.sholto.ui.timer.DoneScreen
 import com.nickorton.sholto.ui.timer.TimerScreen
 import com.nickorton.sholto.ui.timer.TimerUiState
 import com.nickorton.sholto.ui.timer.TimerViewModel
+import com.nickorton.sholto.ui.timer.formatCallerSummary
 import com.nickorton.sholto.ui.timer.formatSummary
 
 /**
- * The app's top level. With only the timer so far, the screen follows the
- * session state directly. Compose Navigation comes in when more modes do.
+ * The app's top level. While a timer or punch-caller session is running or on
+ * its summary screen, that screen takes over; otherwise Home and Settings let
+ * the user pick between Timer and Punch Caller modes.
  */
 @Composable
 fun SholtoApp(
@@ -47,22 +54,62 @@ fun SholtoApp(
                 onClose = connection::unbind,
             )
         },
+    callerViewModel: CallerViewModel =
+        viewModel {
+            val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as SholtoApplication
+            val connection = WorkoutServiceConnection(app).also { it.bind() }
+            CallerViewModel(
+                controllers = connection.callerController,
+                onClose = connection::unbind,
+            )
+        },
     settingsViewModel: SettingsViewModel =
         viewModel {
             val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as SholtoApplication
             SettingsViewModel(app.settingsRepository)
         },
 ) {
-    val state by timerViewModel.uiState.collectAsStateWithLifecycle()
+    val timerState by timerViewModel.uiState.collectAsStateWithLifecycle()
+    val callerState by callerViewModel.uiState.collectAsStateWithLifecycle()
     val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
+    var mode by rememberSaveable { mutableStateOf(WorkoutMode.Timer) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
 
-    when (val s = state) {
-        TimerUiState.Loading -> {
-            Surface(Modifier.fillMaxSize()) {}
+    val tState = timerState
+    val cState = callerState
+    when {
+        tState is TimerUiState.Running -> {
+            // Back pauses first, so it can't end a session by accident.
+            BackHandler { if (tState.isPaused) timerViewModel.end() else timerViewModel.pause() }
+            TimerScreen(
+                state = tState,
+                onPause = timerViewModel::pause,
+                onResume = timerViewModel::resume,
+                onEnd = timerViewModel::end,
+            )
         }
 
-        is TimerUiState.Idle -> {
+        tState is TimerUiState.Done -> {
+            BackHandler(onBack = timerViewModel::home)
+            DoneScreen(state = tState, onAgain = timerViewModel::start, onHome = timerViewModel::home)
+        }
+
+        cState is CallerUiState.Running -> {
+            BackHandler { if (cState.isPaused) callerViewModel.end() else callerViewModel.pause() }
+            CallerScreen(
+                state = cState,
+                onPause = callerViewModel::pause,
+                onResume = callerViewModel::resume,
+                onEnd = callerViewModel::end,
+            )
+        }
+
+        cState is CallerUiState.Done -> {
+            BackHandler(onBack = callerViewModel::home)
+            CallerDoneScreen(state = cState, onAgain = callerViewModel::start, onHome = callerViewModel::home)
+        }
+
+        tState is TimerUiState.Idle && cState is CallerUiState.Idle -> {
             RequestNotificationPermission()
             val currentSettings = settingsState
             if (showSettings && currentSettings != null) {
@@ -76,31 +123,39 @@ fun SholtoApp(
                     onDeletePreset = settingsViewModel::deletePreset,
                     nameError = settingsViewModel::nameError,
                     onBack = { showSettings = false },
+                    initialMode = mode,
+                    onUpdateCaller = settingsViewModel::updateCaller,
+                    onApplyCallerPreset = settingsViewModel::applyCallerPreset,
                 )
             } else {
-                HomeScreen(
-                    presetName = currentSettings?.activePresetName ?: Presets.CUSTOM_NAME,
-                    summary = formatSummary(s.config),
-                    onStart = timerViewModel::start,
-                    onSettings = { showSettings = true },
-                )
+                when (mode) {
+                    WorkoutMode.Timer -> {
+                        HomeScreen(
+                            presetName = currentSettings?.activePresetName ?: Presets.CUSTOM_NAME,
+                            summary = formatSummary(tState.config),
+                            onStart = timerViewModel::start,
+                            onSettings = { showSettings = true },
+                            mode = mode,
+                            onModeChange = { mode = it },
+                        )
+                    }
+
+                    WorkoutMode.Caller -> {
+                        HomeScreen(
+                            presetName = currentSettings?.activeCallerPresetName ?: Presets.CUSTOM_NAME,
+                            summary = formatCallerSummary(cState.settings),
+                            onStart = callerViewModel::start,
+                            onSettings = { showSettings = true },
+                            mode = mode,
+                            onModeChange = { mode = it },
+                        )
+                    }
+                }
             }
         }
 
-        is TimerUiState.Running -> {
-            // Back pauses first, so it can't end a session by accident.
-            BackHandler { if (s.isPaused) timerViewModel.end() else timerViewModel.pause() }
-            TimerScreen(
-                state = s,
-                onPause = timerViewModel::pause,
-                onResume = timerViewModel::resume,
-                onEnd = timerViewModel::end,
-            )
-        }
-
-        is TimerUiState.Done -> {
-            BackHandler(onBack = timerViewModel::home)
-            DoneScreen(state = s, onAgain = timerViewModel::start, onHome = timerViewModel::home)
+        else -> {
+            Surface(Modifier.fillMaxSize()) {}
         }
     }
 }

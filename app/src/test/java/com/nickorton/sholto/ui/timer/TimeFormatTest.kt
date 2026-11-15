@@ -1,7 +1,12 @@
 package com.nickorton.sholto.ui.timer
 
+import com.nickorton.sholto.data.CallerSettings
 import com.nickorton.sholto.engine.Phase
+import com.nickorton.sholto.engine.Punch
+import com.nickorton.sholto.engine.PunchConfig
 import com.nickorton.sholto.engine.RoundConfig
+import com.nickorton.sholto.engine.Stance
+import com.nickorton.sholto.ui.caller.CallerUiState
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -82,5 +87,43 @@ class TimeFormatTest {
         val rest = work.copy(phase = Phase.Rest, phaseTimeLeftMs = 45_000L)
         assertEquals("REST · 0:45", notificationTitle(rest))
         assertEquals("NEXT: ROUND 4 / 12", notificationText(rest))
+    }
+
+    @Test
+    fun `caller formatting and notifications`() {
+        assertEquals("2.5 s", formatSecondsTenths(2_500L))
+        assertEquals("0.8 s", formatSecondsTenths(800L))
+        assertEquals("1.2×", formatSpeechRate(1.2f))
+
+        assertEquals(
+            "3.0 s mean · 10 punches · ∞",
+            formatCallerSummary(CallerSettings()),
+        )
+        assertEquals(
+            "4.0 s mean · 2 punches · 3:00",
+            formatCallerSummary(
+                CallerSettings(
+                    punch = PunchConfig(meanGapMs = 4_000L, minGapMs = 1_500L, maxGapMs = 8_000L, enabled = setOf(Punch.One, Punch.Two)),
+                    sessionLengthMs = 180_000L,
+                ),
+            ),
+        )
+
+        val running =
+            CallerUiState.Running(
+                currentCall = Punch.One,
+                stance = Stance.Orthodox,
+                callCount = 7,
+                callAgeMs = 100L,
+                elapsedMs = 15_000L,
+                timeLeftMs = 165_000L,
+                isPaused = false,
+            )
+        assertEquals("CALLER · 1 · 2:45", callerNotificationTitle(running))
+        assertEquals("7 calls", callerNotificationText(running))
+
+        val pausedUntilStopped = running.copy(timeLeftMs = null, isPaused = true)
+        assertEquals("PAUSED · 0:15", callerNotificationTitle(pausedUntilStopped))
+        assertEquals("PUNCH CALLER · 7 calls", callerNotificationText(pausedUntilStopped))
     }
 }

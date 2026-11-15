@@ -54,6 +54,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.nickorton.sholto.R
 import com.nickorton.sholto.audio.Cue
+import com.nickorton.sholto.data.CallerLimits
+import com.nickorton.sholto.data.CallerPreset
+import com.nickorton.sholto.data.CallerSettings
 import com.nickorton.sholto.data.LengthRange
 import com.nickorton.sholto.data.Preset
 import com.nickorton.sholto.data.PresetNameError
@@ -61,9 +64,18 @@ import com.nickorton.sholto.data.Presets
 import com.nickorton.sholto.data.TapBehavior
 import com.nickorton.sholto.data.TimerLimits
 import com.nickorton.sholto.data.TimerSettings
+import com.nickorton.sholto.engine.CalloutStyle
+import com.nickorton.sholto.engine.GapDistribution
+import com.nickorton.sholto.engine.Punch
+import com.nickorton.sholto.engine.PunchConfig
 import com.nickorton.sholto.engine.RoundConfig
+import com.nickorton.sholto.engine.Stance
+import com.nickorton.sholto.ui.home.WorkoutMode
 import com.nickorton.sholto.ui.theme.SholtoTheme
+import com.nickorton.sholto.ui.timer.formatCallerSummary
 import com.nickorton.sholto.ui.timer.formatDuration
+import com.nickorton.sholto.ui.timer.formatSecondsTenths
+import com.nickorton.sholto.ui.timer.formatSpeechRate
 import com.nickorton.sholto.ui.timer.formatSummary
 
 /** A preset dialog that's open, if any. */
@@ -80,9 +92,9 @@ private sealed interface PresetDialog {
 }
 
 /**
- * Timer settings and presets (DESIGN.md §2.4). Lengths are set with steppers
- * that stay inside [TimerLimits], so an impossible combination can't be
- * entered: shortening the round below the warning shortens the warning too.
+ * Timer and punch-caller settings and presets (DESIGN.md §2.4, §3.5). Lengths
+ * and gaps are set with steppers that stay inside [TimerLimits] and
+ * [CallerLimits], so an impossible combination can't be entered.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,8 +108,12 @@ fun SettingsScreen(
     nameError: (name: String, renamingId: String?) -> PresetNameError?,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    initialMode: WorkoutMode = WorkoutMode.Timer,
+    onUpdateCaller: ((CallerSettings) -> CallerSettings) -> Unit = {},
+    onApplyCallerPreset: (CallerPreset) -> Unit = {},
 ) {
     var dialog by remember { mutableStateOf<PresetDialog?>(null) }
+    var mode by rememberSaveable { mutableStateOf(initialMode) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -119,19 +135,58 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            PresetsSection(
-                state = state,
-                onApply = onApplyPreset,
-                onSave = { dialog = PresetDialog.Save },
-                onRename = { dialog = PresetDialog.Rename(it) },
-                onDelete = { dialog = PresetDialog.Delete(it) },
-            )
-            SectionDivider()
-            RoundsSection(state.settings, onUpdate)
-            SectionDivider()
-            SessionSection(state.settings, onUpdate)
-            SectionDivider()
-            SoundsSection(state.settings, onUpdate)
+            val modes =
+                listOf(
+                    WorkoutMode.Timer to R.string.mode_timer,
+                    WorkoutMode.Caller to R.string.mode_caller,
+                )
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            ) {
+                modes.forEachIndexed { index, (item, label) ->
+                    SegmentedButton(
+                        selected = mode == item,
+                        onClick = { mode = item },
+                        shape = SegmentedButtonDefaults.itemShape(index, modes.size),
+                    ) {
+                        Text(stringResource(label))
+                    }
+                }
+            }
+            when (mode) {
+                WorkoutMode.Timer -> {
+                    PresetsSection(
+                        state = state,
+                        onApply = onApplyPreset,
+                        onSave = { dialog = PresetDialog.Save },
+                        onRename = { dialog = PresetDialog.Rename(it) },
+                        onDelete = { dialog = PresetDialog.Delete(it) },
+                    )
+                    SectionDivider()
+                    RoundsSection(state.settings, onUpdate)
+                    SectionDivider()
+                    SessionSection(state.settings, onUpdate)
+                    SectionDivider()
+                    SoundsSection(state.settings, onUpdate)
+                }
+
+                WorkoutMode.Caller -> {
+                    CallerPresetsSection(
+                        state = state,
+                        onApply = onApplyCallerPreset,
+                    )
+                    SectionDivider()
+                    CallerPacingSection(state.callerSettings, onUpdateCaller)
+                    SectionDivider()
+                    CallerPunchPoolSection(state.callerSettings, onUpdateCaller)
+                    SectionDivider()
+                    CallerVoiceSection(state.callerSettings, onUpdateCaller)
+                    SectionDivider()
+                    CallerSessionLengthSection(state.callerSettings, onUpdateCaller)
+                    SectionDivider()
+                    CallerSessionBehaviorSection(state.callerSettings, onUpdateCaller)
+                }
+            }
             Spacer(Modifier.heightIn(min = 24.dp))
         }
     }
@@ -461,6 +516,245 @@ private fun soundLabel(cue: Cue): Int =
         Cue.Countdown -> R.string.sound_countdown
         Cue.SessionDone -> R.string.sound_session_done
     }
+
+@Composable
+private fun CallerPresetsSection(
+    state: SettingsUiState,
+    onApply: (CallerPreset) -> Unit,
+) {
+    SectionTitle(stringResource(R.string.section_difficulty))
+    state.callerPresets.forEach { preset ->
+        PresetRow(
+            name = preset.name,
+            summary = formatCallerSummary(CallerSettings(punch = preset.applyTo(PunchConfig()))),
+            selected = preset.id == state.activeCallerPreset?.id,
+            onClick = { onApply(preset) },
+            menu = null,
+        )
+    }
+    if (state.activeCallerPreset == null) {
+        PresetRow(
+            name = stringResource(R.string.preset_custom),
+            summary = formatCallerSummary(state.callerSettings),
+            selected = true,
+            onClick = {},
+            menu = null,
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CallerPacingSection(
+    settings: CallerSettings,
+    onUpdate: ((CallerSettings) -> CallerSettings) -> Unit,
+) {
+    val punch = settings.punch
+    SectionTitle(stringResource(R.string.section_pacing))
+    GapStepper(
+        label = stringResource(R.string.mean_gap),
+        valueMs = punch.meanGapMs,
+        range = CallerLimits.meanGap,
+        onChange = { ms -> onUpdate { it.withMeanGap(ms) } },
+    )
+    Text(stringResource(R.string.distribution), style = MaterialTheme.typography.bodyLarge)
+    val distributions =
+        listOf(
+            GapDistribution.Exponential to R.string.dist_exponential,
+            GapDistribution.Uniform to R.string.dist_uniform,
+            GapDistribution.Normal to R.string.dist_normal,
+            GapDistribution.Fixed to R.string.dist_fixed,
+        )
+    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        distributions.forEachIndexed { index, (dist, label) ->
+            SegmentedButton(
+                selected = punch.distribution == dist,
+                onClick = { onUpdate { it.withDistribution(dist) } },
+                shape = SegmentedButtonDefaults.itemShape(index, distributions.size),
+            ) {
+                Text(stringResource(label))
+            }
+        }
+    }
+    GapStepper(
+        label = stringResource(R.string.min_gap),
+        valueMs = punch.minGapMs,
+        range = CallerLimits.minGap(punch.meanGapMs),
+        onChange = { ms -> onUpdate { it.withMinGap(ms) } },
+    )
+    GapStepper(
+        label = stringResource(R.string.max_gap),
+        valueMs = punch.maxGapMs,
+        range = CallerLimits.maxGap(punch.meanGapMs),
+        onChange = { ms -> onUpdate { it.withMaxGap(ms) } },
+    )
+    if (punch.distribution == GapDistribution.Normal) {
+        GapStepper(
+            label = stringResource(R.string.std_dev),
+            valueMs = punch.stdDevMs,
+            range = CallerLimits.stdDev,
+            onChange = { ms -> onUpdate { it.withStdDev(ms) } },
+        )
+    }
+}
+
+@Composable
+private fun CallerPunchPoolSection(
+    settings: CallerSettings,
+    onUpdate: ((CallerSettings) -> CallerSettings) -> Unit,
+) {
+    val punch = settings.punch
+    SectionTitle(stringResource(R.string.section_punches))
+    SwitchRow(
+        label = stringResource(R.string.avoid_repeats),
+        summary = stringResource(R.string.avoid_repeats_summary),
+        checked = punch.avoidRepeats,
+        onCheckedChange = { on -> onUpdate { it.withAvoidRepeats(on) } },
+    )
+    Punch.entries.forEach { target ->
+        SwitchRow(
+            label = "${target.label} · ${target.fullName(settings.stance)}",
+            checked = target in punch.enabled,
+            onCheckedChange = { on -> onUpdate { it.withPunchEnabled(target, on) } },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CallerVoiceSection(
+    settings: CallerSettings,
+    onUpdate: ((CallerSettings) -> CallerSettings) -> Unit,
+) {
+    SectionTitle(stringResource(R.string.section_voice))
+    Text(stringResource(R.string.stance), style = MaterialTheme.typography.bodyLarge)
+    val stances =
+        listOf(
+            Stance.Orthodox to R.string.stance_orthodox,
+            Stance.Southpaw to R.string.stance_southpaw,
+        )
+    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        stances.forEachIndexed { index, (stance, label) ->
+            SegmentedButton(
+                selected = settings.stance == stance,
+                onClick = { onUpdate { it.withStance(stance) } },
+                shape = SegmentedButtonDefaults.itemShape(index, stances.size),
+            ) {
+                Text(stringResource(label))
+            }
+        }
+    }
+
+    Text(stringResource(R.string.callout_style), style = MaterialTheme.typography.bodyLarge)
+    val styles =
+        listOf(
+            CalloutStyle.Numbers to R.string.style_numbers,
+            CalloutStyle.Names to R.string.style_names,
+            CalloutStyle.Both to R.string.style_both,
+        )
+    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        styles.forEachIndexed { index, (style, label) ->
+            SegmentedButton(
+                selected = settings.calloutStyle == style,
+                onClick = { onUpdate { it.withCalloutStyle(style) } },
+                shape = SegmentedButtonDefaults.itemShape(index, styles.size),
+            ) {
+                Text(stringResource(label))
+            }
+        }
+    }
+
+    Stepper(
+        label = stringResource(R.string.speech_rate),
+        value = formatSpeechRate(settings.speechRate),
+        canDecrease = CallerLimits.canStepSpeechRateDown(settings.speechRate),
+        canIncrease = CallerLimits.canStepSpeechRateUp(settings.speechRate),
+        onDecrease = { onUpdate { s -> s.withSpeechRate(CallerLimits.stepSpeechRateDown(s.speechRate)) } },
+        onIncrease = { onUpdate { s -> s.withSpeechRate(CallerLimits.stepSpeechRateUp(s.speechRate)) } },
+    )
+}
+
+@Composable
+private fun CallerSessionLengthSection(
+    settings: CallerSettings,
+    onUpdate: ((CallerSettings) -> CallerSettings) -> Unit,
+) {
+    SectionTitle(stringResource(R.string.section_caller_session))
+    var lastFixedDuration by rememberSaveable { mutableStateOf(settings.sessionLengthMs ?: DEFAULT_CALLER_DURATION_MS) }
+    settings.sessionLengthMs?.let { lastFixedDuration = it }
+    SwitchRow(
+        label = stringResource(R.string.until_stopped),
+        summary = stringResource(R.string.until_stopped_summary),
+        checked = settings.sessionLengthMs == null,
+        onCheckedChange = { on -> onUpdate { it.withSessionLength(if (on) null else lastFixedDuration) } },
+    )
+    val duration = settings.sessionLengthMs
+    Stepper(
+        label = stringResource(R.string.session_duration),
+        value = duration?.let(::formatDuration) ?: "∞",
+        canDecrease = duration != null && CallerLimits.sessionLength.canStepDown(duration),
+        canIncrease = duration != null && CallerLimits.sessionLength.canStepUp(duration),
+        onDecrease = {
+            onUpdate { s ->
+                s.sessionLengthMs?.let { s.withSessionLength(CallerLimits.sessionLength.stepDown(it)) } ?: s
+            }
+        },
+        onIncrease = {
+            onUpdate { s ->
+                s.sessionLengthMs?.let { s.withSessionLength(CallerLimits.sessionLength.stepUp(it)) } ?: s
+            }
+        },
+    )
+}
+
+private const val DEFAULT_CALLER_DURATION_MS = 3 * 60_000L
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CallerSessionBehaviorSection(
+    settings: CallerSettings,
+    onUpdate: ((CallerSettings) -> CallerSettings) -> Unit,
+) {
+    SectionTitle(stringResource(R.string.section_session))
+    Text(stringResource(R.string.tap_behavior), style = MaterialTheme.typography.bodyLarge)
+    val options = listOf(TapBehavior.Pause to R.string.tap_pause, TapBehavior.Stop to R.string.tap_stop)
+    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        options.forEachIndexed { index, (behavior, label) ->
+            SegmentedButton(
+                selected = settings.tapBehavior == behavior,
+                onClick = { onUpdate { it.copy(tapBehavior = behavior) } },
+                shape = SegmentedButtonDefaults.itemShape(index, options.size),
+            ) {
+                Text(stringResource(label))
+            }
+        }
+    }
+    SwitchRow(
+        label = stringResource(R.string.keep_screen_on),
+        checked = settings.keepScreenOn,
+        onCheckedChange = { on -> onUpdate { it.copy(keepScreenOn = on) } },
+    )
+}
+
+/** A gap in tenths of a second (`1.5s`), stepped within [range]. */
+@Composable
+private fun GapStepper(
+    label: String,
+    valueMs: Long,
+    range: LengthRange,
+    onChange: (Long) -> Unit,
+    summary: String? = null,
+) {
+    Stepper(
+        label = label,
+        summary = summary,
+        value = formatSecondsTenths(valueMs),
+        canDecrease = range.canStepDown(valueMs),
+        canIncrease = range.canStepUp(valueMs),
+        onDecrease = { onChange(range.stepDown(valueMs)) },
+        onIncrease = { onChange(range.stepUp(valueMs)) },
+    )
+}
 
 @Composable
 private fun SwitchRow(

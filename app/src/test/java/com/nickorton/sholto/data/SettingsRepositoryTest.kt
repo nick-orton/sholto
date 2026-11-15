@@ -2,7 +2,11 @@ package com.nickorton.sholto.data
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.nickorton.sholto.audio.Cue
+import com.nickorton.sholto.engine.CalloutStyle
+import com.nickorton.sholto.engine.GapDistribution
+import com.nickorton.sholto.engine.Punch
 import com.nickorton.sholto.engine.RoundConfig
+import com.nickorton.sholto.engine.Stance
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -128,4 +132,46 @@ class SettingsRepositoryTest {
             decoded,
         )
     }
+
+    @Test
+    fun `caller settings and presets persist across repository instances`() =
+        runTest {
+            val file = tempFolder.newFile("caller.preferences_pb")
+            val scope1 = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
+            val repo1 = SettingsRepository(PreferenceDataStoreFactory.create(scope = scope1) { file })
+
+            assertEquals(CallerSettings(), repo1.callerSettings.first())
+
+            repo1.applyCallerPreset(CallerPresets.builtIn.first { it.id == "advanced" })
+            repo1.updateCallerSettings {
+                it
+                    .withDistribution(GapDistribution.Normal)
+                    .withStdDev(700L)
+                    .withAvoidRepeats(false)
+                    .withStance(Stance.Southpaw)
+                    .withCalloutStyle(CalloutStyle.Both)
+                    .withSpeechRate(1.5f)
+                    .withSessionLength(180_000L)
+                    .copy(tapBehavior = TapBehavior.Stop, keepScreenOn = false)
+            }
+            scope1.cancel()
+
+            val scope2 = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
+            val repo2 = SettingsRepository(PreferenceDataStoreFactory.create(scope = scope2) { file })
+            val restored = repo2.callerSettings.first()
+            assertEquals(1_800L, restored.punch.meanGapMs)
+            assertEquals(600L, restored.punch.minGapMs)
+            assertEquals(8_000L, restored.punch.maxGapMs)
+            assertEquals(GapDistribution.Normal, restored.punch.distribution)
+            assertEquals(700L, restored.punch.stdDevMs)
+            assertEquals(Punch.entries.toSet(), restored.punch.enabled)
+            assertEquals(false, restored.punch.avoidRepeats)
+            assertEquals(Stance.Southpaw, restored.stance)
+            assertEquals(CalloutStyle.Both, restored.calloutStyle)
+            assertEquals(1.5f, restored.speechRate, 1e-4f)
+            assertEquals(180_000L, restored.sessionLengthMs)
+            assertEquals(TapBehavior.Stop, restored.tapBehavior)
+            assertEquals(false, restored.keepScreenOn)
+            scope2.cancel()
+        }
 }
