@@ -34,13 +34,17 @@ fun formatSecondsTenths(ms: Long): String {
 /** A TTS speech rate, e.g. `1.2×`. */
 fun formatSpeechRate(rate: Float): String = "${CallerLimits.clampSpeechRate(rate)}×"
 
-/** The Home summary line for the punch caller, e.g. `3.0 s mean · 10 punches · ∞`. */
+/**
+ * The Home summary line for the punch caller, e.g. `3.0 s mean · 10 punches · ∞`,
+ * or `3.0 s mean · 10 punches · combos up to 3 · ∞` with combos on.
+ */
 fun formatCallerSummary(settings: CallerSettings): String {
     val mean = "${formatSecondsTenths(settings.punch.meanGapMs)} mean"
     val count = settings.punch.pool.size
     val punches = if (count == 1) "1 punch" else "$count punches"
+    val combos = if (settings.punch.combos) " · combos up to ${settings.punch.maxComboLength}" else ""
     val length = settings.sessionLengthMs?.let(::formatDuration) ?: "∞"
-    return "$mean · $punches · $length"
+    return "$mean · $punches$combos · $length"
 }
 
 /**

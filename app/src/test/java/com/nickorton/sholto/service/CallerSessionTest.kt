@@ -4,7 +4,9 @@ import com.nickorton.sholto.audio.CallAnnouncer
 import com.nickorton.sholto.audio.Cue
 import com.nickorton.sholto.audio.CuePlayer
 import com.nickorton.sholto.data.CallerSettings
+import com.nickorton.sholto.engine.CallTiming
 import com.nickorton.sholto.engine.CalloutStyle
+import com.nickorton.sholto.engine.Combo
 import com.nickorton.sholto.engine.GapDistribution
 import com.nickorton.sholto.engine.Punch
 import com.nickorton.sholto.engine.PunchConfig
@@ -47,7 +49,7 @@ class CallerSessionTest {
     @Test
     fun `calls punches on fixed gap boundaries and ends when fixed duration elapses`() =
         runTest(dispatcher) {
-            val spoken = mutableListOf<Pair<Punch, Float>>()
+            val spoken = mutableListOf<Pair<Combo, Float>>()
             val announcer =
                 CallAnnouncer { punch, _, _, speechRate ->
                     spoken += punch to speechRate
@@ -119,7 +121,7 @@ class CallerSessionTest {
     @Test
     fun `pause, resume and phone call shift call boundaries without drift`() =
         runTest(dispatcher) {
-            val spoken = mutableListOf<Punch>()
+            val spoken = mutableListOf<Combo>()
             val settings =
                 CallerSettings(
                     punch =
@@ -185,4 +187,42 @@ class CallerSessionTest {
         assertEquals(0.175f, flashAlpha(75L), 1e-4f)
         assertEquals(0f, flashAlpha(150L), 1e-4f)
     }
+
+    @Test
+    fun `the wait after a combo starts once it has been said and thrown`() =
+        runTest(dispatcher) {
+            val spoken = mutableListOf<Pair<Long, Combo>>()
+            val settings =
+                CallerSettings(
+                    punch =
+                        PunchConfig(
+                            meanGapMs = 1_000L,
+                            minGapMs = 1_000L,
+                            maxGapMs = 1_000L,
+                            distribution = GapDistribution.Fixed,
+                            combos = true,
+                            maxComboLength = 3,
+                        ),
+                    speechRate = 1.0f,
+                )
+            val session =
+                CallerSession(
+                    scope = backgroundScope,
+                    settings = MutableStateFlow(settings),
+                    announcer = CallAnnouncer { call, _, _, _ -> spoken += testScheduler.currentTime to call },
+                    clock = { testScheduler.currentTime },
+                    randomFactory = { Random(5) },
+                )
+            runCurrent()
+            session.start()
+            advanceTimeBy(60_000L)
+            runCurrent()
+
+            assertTrue(spoken.size > 10)
+            assertTrue(spoken.any { it.second.size > 1 })
+            spoken.zipWithNext().forEach { (a, b) ->
+                val speech = CallTiming.speechMs(a.second.spokenText(CalloutStyle.Numbers, Stance.Orthodox), 1.0f)
+                assertEquals("after ${a.second}", a.first + CallTiming.busyMs(a.second, speech) + 1_000L, b.first)
+            }
+        }
 }

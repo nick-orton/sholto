@@ -33,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,8 +47,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -82,6 +86,7 @@ import com.nickorton.sholto.ui.timer.formatPushFactor
 import com.nickorton.sholto.ui.timer.formatSecondsTenths
 import com.nickorton.sholto.ui.timer.formatSpeechRate
 import com.nickorton.sholto.ui.timer.formatSummary
+import kotlin.math.roundToInt
 
 /** A preset dialog that's open, if any. */
 private sealed interface PresetDialog {
@@ -182,6 +187,8 @@ fun SettingsScreen(
                     CallerPacingSection(state.callerSettings, onUpdateCaller)
                     SectionDivider()
                     CallerPunchPoolSection(state.callerSettings, onUpdateCaller)
+                    SectionDivider()
+                    CallerCombosSection(state.callerSettings, onUpdateCaller)
                     SectionDivider()
                     CallerVoiceSection(state.callerSettings, onUpdateCaller)
                     SectionDivider()
@@ -663,6 +670,7 @@ private fun CallerPacingSection(
             onChange = { ms -> onUpdate { it.withStdDev(ms) } },
         )
     }
+    GapPreviewChart(punch)
 }
 
 @Composable
@@ -683,6 +691,107 @@ private fun CallerPunchPoolSection(
             label = "${target.label} · ${target.fullName(settings.stance)}",
             checked = target in punch.enabled,
             onCheckedChange = { on -> onUpdate { it.withPunchEnabled(target, on) } },
+        )
+        if (target in punch.enabled) {
+            WeightSlider(
+                punchLabel = target.label,
+                weight = punch.weightOf(target),
+                onChange = { w -> onUpdate { it.withWeight(target, w) } },
+            )
+        }
+    }
+}
+
+/** How often a punch is called, from 0 (never) to [PunchConfig.MAX_WEIGHT]. */
+@Composable
+private fun WeightSlider(
+    punchLabel: String,
+    weight: Int,
+    onChange: (Int) -> Unit,
+) {
+    val description = stringResource(R.string.weight_of, punchLabel)
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.weight),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Slider(
+            value = weight.toFloat(),
+            onValueChange = { v -> if (v.roundToInt() != weight) onChange(v.roundToInt()) },
+            valueRange = 0f..PunchConfig.MAX_WEIGHT.toFloat(),
+            steps = PunchConfig.MAX_WEIGHT - 1,
+            modifier = Modifier.weight(1f).padding(horizontal = 12.dp).semantics { contentDescription = description },
+        )
+        Text(
+            text = weight.toString(),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.End,
+            modifier = Modifier.widthIn(min = 24.dp),
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CallerCombosSection(
+    settings: CallerSettings,
+    onUpdate: ((CallerSettings) -> CallerSettings) -> Unit,
+) {
+    val punch = settings.punch
+    SectionTitle(stringResource(R.string.section_combos))
+    SwitchRow(
+        label = stringResource(R.string.combos),
+        summary = stringResource(R.string.combos_summary),
+        checked = punch.combos,
+        onCheckedChange = { on -> onUpdate { it.withCombos(on) } },
+    )
+    if (!punch.combos) return
+    Stepper(
+        label = stringResource(R.string.max_combo_length),
+        value = punch.maxComboLength.toString(),
+        canDecrease = punch.maxComboLength > 2,
+        canIncrease = punch.maxComboLength < PunchConfig.MAX_COMBO_LENGTH,
+        onDecrease = { onUpdate { it.withMaxComboLength(it.punch.maxComboLength - 1) } },
+        onIncrease = { onUpdate { it.withMaxComboLength(it.punch.maxComboLength + 1) } },
+    )
+    Text(stringResource(R.string.combo_lengths), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 8.dp))
+    Text(
+        stringResource(R.string.combo_lengths_summary),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    val used = punch.comboLengthWeights.take(punch.maxComboLength)
+    val total = used.sum().coerceAtLeast(1)
+    used.forEachIndexed { i, w ->
+        val length = i + 1
+        val percent = (100.0 * w / total).roundToInt()
+        Stepper(
+            label = pluralStringResource(R.plurals.combo_length, length, length),
+            summary = stringResource(R.string.percent_of_calls, percent),
+            value = w.toString(),
+            canDecrease = w > 0,
+            canIncrease = w < CallerLimits.MAX_LENGTH_WEIGHT,
+            onDecrease = { onUpdate { it.withComboLengthWeight(length, w - CallerLimits.LENGTH_WEIGHT_STEP) } },
+            onIncrease = { onUpdate { it.withComboLengthWeight(length, w + CallerLimits.LENGTH_WEIGHT_STEP) } },
+        )
+    }
+    SwitchRow(
+        label = stringResource(R.string.natural_combos),
+        summary = stringResource(R.string.natural_combos_summary),
+        checked = punch.naturalOnly,
+        onCheckedChange = { on -> onUpdate { it.withNaturalOnly(on) } },
+    )
+    if (punch.naturalOnly) {
+        SwitchRow(
+            label = stringResource(R.string.allow_doubling),
+            summary = stringResource(R.string.allow_doubling_summary),
+            checked = punch.allowDoubling,
+            onCheckedChange = { on -> onUpdate { it.withDoubling(on) } },
         )
     }
 }

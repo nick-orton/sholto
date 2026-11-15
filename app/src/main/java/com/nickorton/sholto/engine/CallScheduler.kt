@@ -15,21 +15,26 @@ package com.nickorton.sholto.engine
  *   restarts from that change, so the faster pace begins with the warning
  *   clacks instead of after one more slow gap.
  * - **Bell protection:** every phase change plays a cue, and no call is
- *   placed within [bellGuardMs] of one, before or after. A call due just
- *   before a phase change moves to [bellGuardMs] after it (or is dropped if
- *   that is Rest or Done). A call due just after one waits until
- *   [bellGuardMs] after it.
+ *   spoken within [bellGuardMs] of one. A call starts at least [bellGuardMs]
+ *   after a phase change, and its speech (from [speechMs]) ends at least
+ *   [bellGuardMs] before the next one. A call that would end too close moves
+ *   to [bellGuardMs] after the change (or is dropped if that is Rest or
+ *   Done).
+ * - **Combos:** the wait to the next call starts once a combo has been spoken
+ *   and thrown ([CallTiming.busyMs]).
  *
- * Gaps are drawn from [punches] as calls are scheduled, so for a given seed
- * the calls are the same whenever the session is paused.
+ * Each call and its gap are drawn from [punches] when the call is scheduled,
+ * so for a given seed the calls are the same whenever the session is paused.
  *
  * @param finalPushFactor Multiplies the mean gap during Warning. 1.0 is off.
+ * @param speechMs About how long a call takes to say.
  */
 class CallScheduler(
     config: RoundConfig,
     private val punches: PunchEngine,
     private val finalPushFactor: Double = 1.0,
     private val bellGuardMs: Long = BELL_GUARD_MS,
+    private val speechMs: (Combo) -> Long = { 0L },
 ) {
     init {
         require(finalPushFactor > 0.0) { "finalPushFactor must be positive, was $finalPushFactor" }
@@ -38,8 +43,8 @@ class CallScheduler(
 
     private val timeline = RoundTimeline(config)
 
-    /** When the first call of the session happens, or null if none fits. */
-    fun firstCallAt(): Long? {
+    /** The first call of the session, or null if none fits. */
+    fun firstCall(): ScheduledCall? {
         val start = timeline.spanAt(0L)
         return if (start.phase.hasCalls) {
             val pace = paceOf(start.phase)
@@ -51,12 +56,13 @@ class CallScheduler(
     }
 
     /**
-     * When the call after the one at [callAtMs] happens, or null if the
-     * session ends first. [callAtMs] must be a time this scheduler returned.
+     * The call after [previous], or null if the session ends first.
+     * [previous] must be a call this scheduler returned.
      */
-    fun nextCallAfter(callAtMs: Long): Long? {
-        val pace = paceOf(timeline.spanAt(callAtMs).phase)
-        return place(callAtMs + punches.nextGap(pace), pace)
+    fun nextCallAfter(previous: ScheduledCall): ScheduledCall? {
+        val pace = paceOf(timeline.spanAt(previous.atMs).phase)
+        val waitFromMs = previous.atMs + CallTiming.busyMs(previous.combo, speechMs(previous.combo))
+        return place(waitFromMs + punches.nextGap(pace), pace)
     }
 
     /**
@@ -69,7 +75,9 @@ class CallScheduler(
     private fun place(
         candidateMs: Long,
         drawnPace: Double,
-    ): Long? {
+    ): ScheduledCall? {
+        val combo = punches.nextCall()
+        val speaking = speechMs(combo)
         var t = candidateMs
         var pace = drawnPace
         var emptyRounds = 0
@@ -99,13 +107,14 @@ class CallScheduler(
                         // Overshot this phase: look again from where it landed.
                         t >= span.endMs -> {}
 
-                        // Too close to the next cue: try just after it.
-                        t > span.endMs - bellGuardMs -> {
+                        // Would still be talking near the next cue: try just
+                        // after it.
+                        t + speaking > span.endMs - bellGuardMs -> {
                             t = span.endMs
                         }
 
                         else -> {
-                            return t
+                            return ScheduledCall(t, combo)
                         }
                     }
                 }
@@ -128,3 +137,9 @@ class CallScheduler(
         private const val MAX_EMPTY_ROUNDS = 100
     }
 }
+
+/** A call and when it's due, in active session time. */
+data class ScheduledCall(
+    val atMs: Long,
+    val combo: Combo,
+)

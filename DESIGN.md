@@ -216,7 +216,13 @@ length 1…N, e.g. `1-2-3B`.
 - Optional "natural combos only" filter: alternate lead/rear hands (e.g.
   `1-2-3-2` is allowed, `1-1-3` only if doubling is enabled).
 - The wait to the next call starts *after* the combo has been spoken, plus
-  about 0.4 s per punch so you have time to throw it.
+  about 0.4 s per punch so you have time to throw it. Speaking time is
+  estimated from the syllables and speech rate, so timing stays the same for
+  a given seed. Single punches keep the plain gap.
+- Natural combos: consecutive punches switch hands. With doubling on, the
+  lead hand may also throw twice in a row (`1-1-2`, `1-3`, `1-1-3`); the rear
+  hand never doubles. If no enabled punch can follow, the combo ends early.
+- With avoid repeats on, a combo is never the same as the call before it.
 
 **Seed:** each session uses a new random seed. In debug builds the seed can
 be fixed so a sequence can be reproduced for testing.
@@ -261,7 +267,8 @@ the app is meant to be used on the bag.
 - The screen shows the phase color in the background, the countdown at the
   top, and the current punch call large in the center.
 - Callouts never overlap the bell. If a call would fire within 1 s of a phase
-  change, it waits until after the bell.
+  change, it waits until after the bell. This counts the time to say the
+  whole call, so a combo's speech also ends at least 1 s before the bell.
 - Each round starts fresh: the first call comes one gap after the bell (and
   at least 1 s after it). A call that would land in Rest is dropped.
 - When the pace changes at the warning (final push on), the wait restarts

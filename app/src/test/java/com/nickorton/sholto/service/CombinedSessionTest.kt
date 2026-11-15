@@ -7,6 +7,7 @@ import com.nickorton.sholto.data.CallerSettings
 import com.nickorton.sholto.data.CombinedSettings
 import com.nickorton.sholto.data.FinalPush
 import com.nickorton.sholto.data.TimerSettings
+import com.nickorton.sholto.engine.Combo
 import com.nickorton.sholto.engine.GapDistribution
 import com.nickorton.sholto.engine.Phase
 import com.nickorton.sholto.engine.Punch
@@ -40,7 +41,7 @@ class CombinedSessionTest {
     private class Recorder(
         private val scope: TestScope,
     ) {
-        val calls = mutableListOf<Pair<Long, Punch>>()
+        val calls = mutableListOf<Pair<Long, Combo>>()
         val cues = mutableListOf<Pair<Long, Cue>>()
 
         fun session(

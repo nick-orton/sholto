@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nickorton.sholto.R
+import com.nickorton.sholto.engine.Combo
 import com.nickorton.sholto.engine.Punch
 import com.nickorton.sholto.engine.Stance
 import com.nickorton.sholto.ui.theme.ChromeBackground
@@ -187,8 +188,7 @@ internal fun CallDisplay(
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
-        val chars = text.length.coerceAtLeast(2)
-        val size = minOf(maxHeight * 0.65f, maxWidth / (chars * 0.68f))
+        val size = minOf(maxHeight * 0.65f, maxWidth / callTextEms(text))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = text,
@@ -205,12 +205,24 @@ internal fun CallDisplay(
                     text = subtitle.uppercase(),
                     color = color,
                     fontSize = fixedSp(28.dp),
+                    lineHeight = fixedSp(34.dp),
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
                 )
             }
         }
     }
+}
+
+/**
+ * About how wide [text] is in the call face, in ems, with a margin so it
+ * never clips. Letters and digits are wide; the dots and spaces of a combo
+ * like `1 · 2 · 3B` are narrow. At least two characters wide, so a single
+ * digit doesn't fill the whole width.
+ */
+internal fun callTextEms(text: String): Float {
+    val ems = text.sumOf { c -> if (c.isLetterOrDigit()) 0.68 else 0.34 }.toFloat()
+    return ems.coerceAtLeast(2 * 0.68f)
 }
 
 @Composable
@@ -334,7 +346,7 @@ private fun CallerScreenPreview() {
         CallerScreen(
             state =
                 CallerUiState.Running(
-                    currentCall = Punch.ThreeBody,
+                    currentCall = Combo.of(Punch.One, Punch.Two, Punch.ThreeBody),
                     stance = Stance.Orthodox,
                     callCount = 14,
                     callAgeMs = 100L,

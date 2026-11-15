@@ -5,9 +5,10 @@ import com.nickorton.sholto.audio.Cue
 import com.nickorton.sholto.audio.CuePlayer
 import com.nickorton.sholto.data.CallerSettings
 import com.nickorton.sholto.data.TapBehavior
+import com.nickorton.sholto.engine.CallTiming
 import com.nickorton.sholto.engine.Clock
+import com.nickorton.sholto.engine.Combo
 import com.nickorton.sholto.engine.ElapsedRealtimeClock
-import com.nickorton.sholto.engine.Punch
 import com.nickorton.sholto.engine.PunchEngine
 import com.nickorton.sholto.ui.caller.CallerUiState
 import kotlinx.coroutines.CoroutineScope
@@ -73,7 +74,7 @@ class CallerSession(
     private var startTimeMs = 0L
     private var pausedDurationMs = 0L
     private var pausedAtMs: Long? = null
-    private var currentCall: Punch? = null
+    private var currentCall: Combo? = null
     private var callCount = 0
     private var lastCallElapsedMs = 0L
     private var nextCallAtElapsedMs = 0L
@@ -186,7 +187,7 @@ class CallerSession(
         val elapsed = if (limit != null) rawElapsed.coerceAtMost(limit) else rawElapsed
         lastElapsedMs = elapsed
 
-        var newestCall: Punch? = null
+        var newestCall: Combo? = null
         if (pausedAtMs == null) {
             while (nextCallAtElapsedMs <= elapsed && (limit == null || nextCallAtElapsedMs < limit)) {
                 val call = activeEngine.nextCall()
@@ -194,7 +195,9 @@ class CallerSession(
                 newestCall = call
                 callCount++
                 lastCallElapsedMs = nextCallAtElapsedMs
-                nextCallAtElapsedMs += activeEngine.nextGap()
+                // A combo has to be said and thrown before the wait starts.
+                val speech = CallTiming.speechMs(call.spokenText(session.calloutStyle, session.stance), session.speechRate)
+                nextCallAtElapsedMs += CallTiming.busyMs(call, speech) + activeEngine.nextGap()
             }
         }
 
