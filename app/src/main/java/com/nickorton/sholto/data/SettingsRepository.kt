@@ -6,12 +6,18 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.nickorton.sholto.audio.Cue
+import com.nickorton.sholto.engine.CalloutStyle
+import com.nickorton.sholto.engine.GapDistribution
+import com.nickorton.sholto.engine.Punch
+import com.nickorton.sholto.engine.PunchConfig
 import com.nickorton.sholto.engine.RoundConfig
+import com.nickorton.sholto.engine.Stance
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -39,6 +45,8 @@ class SettingsRepository(
 
     val settings: Flow<TimerSettings> = preferences.map(::readSettings).distinctUntilChanged()
 
+    val callerSettings: Flow<CallerSettings> = preferences.map(::readCallerSettings).distinctUntilChanged()
+
     /** Your own presets, oldest first. */
     val userPresets: Flow<List<Preset>> = preferences.map(::readPresets).distinctUntilChanged()
 
@@ -46,9 +54,18 @@ class SettingsRepository(
         dataStore.edit { prefs -> writeSettings(prefs, transform(readSettings(prefs)).sanitized()) }
     }
 
+    suspend fun updateCallerSettings(transform: (CallerSettings) -> CallerSettings) {
+        dataStore.edit { prefs -> writeCallerSettings(prefs, transform(readCallerSettings(prefs)).sanitized()) }
+    }
+
     /** Switches to [preset]'s format, keeping everything else. */
     suspend fun applyPreset(preset: Preset) {
         updateSettings { it.copy(round = preset.applyTo(it.round)) }
+    }
+
+    /** Switches the punch caller to [preset], keeping stance, voice and session length. */
+    suspend fun applyCallerPreset(preset: CallerPreset) {
+        updateCallerSettings { it.copy(punch = preset.applyTo(it.punch)) }
     }
 
     /**
@@ -145,6 +162,66 @@ class SettingsRepository(
 
     private fun readPresets(prefs: Preferences): List<Preset> = PresetCodec.decode(prefs[Keys.userPresets].orEmpty())
 
+    private fun readCallerSettings(prefs: Preferences): CallerSettings {
+        val defaults = CallerSettings()
+        val p = defaults.punch
+        val timer = readSettings(prefs)
+        val mean = (prefs[Keys.callerMeanGap] ?: p.meanGapMs).coerceAtLeast(1L)
+        val min = (prefs[Keys.callerMinGap] ?: p.minGapMs).coerceIn(1L, mean)
+        val max = (prefs[Keys.callerMaxGap] ?: p.maxGapMs).coerceAtLeast(mean)
+        val stdDev = (prefs[Keys.callerStdDev] ?: p.stdDevMs).coerceAtLeast(1L)
+        val disabled = prefs[Keys.callerDisabledPunches].orEmpty()
+        val enabled =
+            Punch.entries
+                .filterTo(mutableSetOf()) { it.name !in disabled }
+                .ifEmpty { Punch.entries.toSet() }
+        val punch =
+            PunchConfig(
+                meanGapMs = mean,
+                minGapMs = min,
+                maxGapMs = max,
+                distribution =
+                    GapDistribution.entries.firstOrNull { it.name == prefs[Keys.callerDistribution] }
+                        ?: p.distribution,
+                stdDevMs = stdDev,
+                enabled = enabled,
+                avoidRepeats = prefs[Keys.callerAvoidRepeats] ?: p.avoidRepeats,
+            )
+        return CallerSettings(
+            punch = punch,
+            stance = Stance.entries.firstOrNull { it.name == prefs[Keys.callerStance] } ?: defaults.stance,
+            calloutStyle =
+                CalloutStyle.entries.firstOrNull { it.name == prefs[Keys.callerCalloutStyle] }
+                    ?: defaults.calloutStyle,
+            speechRate = prefs[Keys.callerSpeechRate] ?: defaults.speechRate,
+            sessionLengthMs = prefs[Keys.callerSessionLength]?.takeIf { it > 0L },
+            tapBehavior = timer.tapBehavior,
+            keepScreenOn = timer.keepScreenOn,
+            finishSound = Cue.SessionDone in timer.sounds,
+            finishVibration = timer.vibration,
+        ).sanitized()
+    }
+
+    private fun writeCallerSettings(
+        prefs: MutablePreferences,
+        settings: CallerSettings,
+    ) {
+        val p = settings.punch
+        prefs[Keys.callerMeanGap] = p.meanGapMs
+        prefs[Keys.callerMinGap] = p.minGapMs
+        prefs[Keys.callerMaxGap] = p.maxGapMs
+        prefs[Keys.callerDistribution] = p.distribution.name
+        prefs[Keys.callerStdDev] = p.stdDevMs
+        prefs[Keys.callerDisabledPunches] = (Punch.entries - p.enabled).mapTo(mutableSetOf()) { it.name }
+        prefs[Keys.callerAvoidRepeats] = p.avoidRepeats
+        prefs[Keys.callerStance] = settings.stance.name
+        prefs[Keys.callerCalloutStyle] = settings.calloutStyle.name
+        prefs[Keys.callerSpeechRate] = settings.speechRate
+        prefs[Keys.callerSessionLength] = settings.sessionLengthMs ?: UNLIMITED_LENGTH
+        prefs[Keys.tapBehavior] = settings.tapBehavior.name
+        prefs[Keys.keepScreenOn] = settings.keepScreenOn
+    }
+
     private object Keys {
         val roundLength = longPreferencesKey("round_length_ms")
         val warningLength = longPreferencesKey("warning_length_ms")
@@ -156,11 +233,24 @@ class SettingsRepository(
         val vibration = booleanPreferencesKey("vibration")
         val keepScreenOn = booleanPreferencesKey("keep_screen_on")
         val userPresets = stringPreferencesKey("user_presets")
+
+        val callerMeanGap = longPreferencesKey("caller_mean_gap_ms")
+        val callerMinGap = longPreferencesKey("caller_min_gap_ms")
+        val callerMaxGap = longPreferencesKey("caller_max_gap_ms")
+        val callerDistribution = stringPreferencesKey("caller_distribution")
+        val callerStdDev = longPreferencesKey("caller_std_dev_ms")
+        val callerDisabledPunches = stringSetPreferencesKey("caller_disabled_punches")
+        val callerAvoidRepeats = booleanPreferencesKey("caller_avoid_repeats")
+        val callerStance = stringPreferencesKey("caller_stance")
+        val callerCalloutStyle = stringPreferencesKey("caller_callout_style")
+        val callerSpeechRate = floatPreferencesKey("caller_speech_rate")
+        val callerSessionLength = longPreferencesKey("caller_session_length_ms")
     }
 
     private companion object {
         /** Stored for unlimited rounds, since DataStore has no null. */
         const val UNLIMITED = 0
+        const val UNLIMITED_LENGTH = 0L
     }
 }
 

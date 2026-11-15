@@ -59,4 +59,14 @@ class PunchTest {
         // The lead hook is 3 in both stances.
         assertEquals(Hand.Lead, Punch.Three.hand)
     }
+
+    @Test
+    fun spokenTextFollowsCalloutStyleAndStance() {
+        assertEquals("one", Punch.One.spokenText(CalloutStyle.Numbers, Stance.Orthodox))
+        assertEquals("two body", Punch.TwoBody.spokenText(CalloutStyle.Numbers, Stance.Orthodox))
+        assertEquals("left hook", Punch.Three.spokenText(CalloutStyle.Names, Stance.Orthodox))
+        assertEquals("right hook", Punch.Three.spokenText(CalloutStyle.Names, Stance.Southpaw))
+        assertEquals("three, left hook", Punch.Three.spokenText(CalloutStyle.Both, Stance.Orthodox))
+        assertEquals("three, right hook", Punch.Three.spokenText(CalloutStyle.Both, Stance.Southpaw))
+    }
 }
