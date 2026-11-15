@@ -67,6 +67,14 @@ The punch caller can use recorded clips instead of text-to-speech. The clips
 aren't in the repository yet; [tools/voice/README.md](tools/voice/README.md)
 lists the words to record and how to turn recordings into clips.
 
+## Releases and privacy
+
+- [RELEASING.md](RELEASING.md): signing, versioning and publishing a release
+  APK on GitHub.
+- [PRIVACY.md](PRIVACY.md): no network access and no data collected.
+- [docs/verification.md](docs/verification.md): drift, colorblind,
+  accessibility and screen-size checks.
+
 ## CI
 
 GitHub Actions runs `spotlessCheck`, `assembleDebug` and `test` on every pull

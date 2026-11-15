@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The Work phase green (PhaseGreen). -->
+    <color name="ic_launcher_background">#00796B</color>
+    <!-- The app's dark background (ChromeBackground). -->
+    <color name="splash_background">#121212</color>
+</resources>

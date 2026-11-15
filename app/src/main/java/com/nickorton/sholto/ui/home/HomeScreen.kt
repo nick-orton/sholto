@@ -33,6 +33,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nickorton.sholto.R
+import com.nickorton.sholto.ui.theme.SegmentLabel
 import com.nickorton.sholto.ui.theme.SholtoTheme
 
 /** The workout modes available on the home screen. */
@@ -90,7 +91,7 @@ fun HomeScreen(
                                     onClick = { onModeChange(item) },
                                     shape = SegmentedButtonDefaults.itemShape(index, modes.size),
                                 ) {
-                                    Text(stringResource(label))
+                                    SegmentLabel(stringResource(label))
                                 }
                             }
                         }
@@ -115,7 +116,8 @@ fun HomeScreen(
                 if (maxWidth > maxHeight) {
                     Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                         title(Modifier.weight(1f).fillMaxHeight())
-                        start(Modifier.weight(1f).fillMaxHeight())
+                        // Clear the settings gear in the top-right corner.
+                        start(Modifier.weight(1f).fillMaxHeight().padding(top = 40.dp))
                     }
                 } else {
                     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(24.dp)) {

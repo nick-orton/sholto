@@ -140,4 +140,9 @@
     <string name="final_push_factor">Gap multiplier</string>
     <string name="final_push_factor_summary">Lower is faster. The min gap still applies.</string>
     <string name="combined_uses_settings">Combined mode runs the punch caller inside the round timer. Rounds and sounds come from the Timer tab; pacing, punches and voice from the Punch Caller tab. Calls stop for rest and never come within 1 second of a bell.</string>
+
+    <!-- About -->
+    <string name="section_about">About</string>
+    <string name="about_version">Sholto %1$s</string>
+    <string name="about_privacy">Works offline. Sholto has no internet access, no accounts and no analytics, and collects no data. Your settings are stored on this phone, and in your own Android backup if you use one.</string>
 </resources>

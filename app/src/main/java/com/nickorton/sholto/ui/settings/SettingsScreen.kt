@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.nickorton.sholto.BuildConfig
 import com.nickorton.sholto.R
 import com.nickorton.sholto.audio.Cue
 import com.nickorton.sholto.data.CallerLimits
@@ -80,6 +81,7 @@ import com.nickorton.sholto.engine.Stance
 import com.nickorton.sholto.engine.Voice
 import com.nickorton.sholto.ui.home.WorkoutMode
 import com.nickorton.sholto.ui.home.workoutModes
+import com.nickorton.sholto.ui.theme.SegmentLabel
 import com.nickorton.sholto.ui.theme.SholtoTheme
 import com.nickorton.sholto.ui.timer.formatCallerSummary
 import com.nickorton.sholto.ui.timer.formatDuration
@@ -158,7 +160,7 @@ fun SettingsScreen(
                         onClick = { mode = item },
                         shape = SegmentedButtonDefaults.itemShape(index, modes.size),
                     ) {
-                        Text(stringResource(label))
+                        SegmentLabel(stringResource(label))
                     }
                 }
             }
@@ -211,6 +213,7 @@ fun SettingsScreen(
                     )
                 }
             }
+            AboutSection()
             Spacer(Modifier.heightIn(min = 24.dp))
         }
     }
@@ -261,6 +264,23 @@ fun SettingsScreen(
             )
         }
     }
+}
+
+/** The version, and what the app does with your data: nothing leaves the phone. */
+@Composable
+private fun AboutSection() {
+    SectionDivider()
+    SectionTitle(stringResource(R.string.section_about))
+    Text(
+        text = stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
+        style = MaterialTheme.typography.bodyLarge,
+    )
+    Text(
+        text = stringResource(R.string.about_privacy),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp),
+    )
 }
 
 @Composable
@@ -500,7 +520,7 @@ private fun SessionSection(
                 onClick = { onUpdate { it.copy(tapBehavior = behavior) } },
                 shape = SegmentedButtonDefaults.itemShape(index, options.size),
             ) {
-                Text(stringResource(label))
+                SegmentLabel(stringResource(label))
             }
         }
     }
@@ -647,7 +667,7 @@ private fun CallerPacingSection(
                 onClick = { onUpdate { it.withDistribution(dist) } },
                 shape = SegmentedButtonDefaults.itemShape(index, distributions.size),
             ) {
-                Text(stringResource(label))
+                SegmentLabel(stringResource(label))
             }
         }
     }
@@ -821,7 +841,7 @@ private fun CallerVoiceSection(
                 enabled = voice == Voice.SystemTts || voicePackInstalled,
                 shape = SegmentedButtonDefaults.itemShape(index, voices.size),
             ) {
-                Text(stringResource(label))
+                SegmentLabel(stringResource(label))
             }
         }
     }
@@ -852,7 +872,7 @@ private fun CallerVoiceSection(
                 onClick = { onUpdate { it.withStance(stance) } },
                 shape = SegmentedButtonDefaults.itemShape(index, stances.size),
             ) {
-                Text(stringResource(label))
+                SegmentLabel(stringResource(label))
             }
         }
     }
@@ -871,7 +891,7 @@ private fun CallerVoiceSection(
                 onClick = { onUpdate { it.withCalloutStyle(style) } },
                 shape = SegmentedButtonDefaults.itemShape(index, styles.size),
             ) {
-                Text(stringResource(label))
+                SegmentLabel(stringResource(label))
             }
         }
     }
@@ -937,7 +957,7 @@ private fun CallerSessionBehaviorSection(
                 onClick = { onUpdate { it.copy(tapBehavior = behavior) } },
                 shape = SegmentedButtonDefaults.itemShape(index, options.size),
             ) {
-                Text(stringResource(label))
+                SegmentLabel(stringResource(label))
             }
         }
     }
@@ -1034,7 +1054,13 @@ private fun Stepper(
                 Text(summary, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        FilledTonalIconButton(onClick = onDecrease, enabled = canDecrease, modifier = Modifier.size(48.dp)) {
+        val decrease = stringResource(R.string.decrease, label)
+        val increase = stringResource(R.string.increase, label)
+        FilledTonalIconButton(
+            onClick = onDecrease,
+            enabled = canDecrease,
+            modifier = Modifier.size(48.dp).semantics { contentDescription = decrease },
+        ) {
             Text("−", style = MaterialTheme.typography.headlineSmall)
         }
         Text(
@@ -1044,7 +1070,11 @@ private fun Stepper(
             textAlign = TextAlign.Center,
             modifier = Modifier.widthIn(min = 72.dp),
         )
-        FilledTonalIconButton(onClick = onIncrease, enabled = canIncrease, modifier = Modifier.size(48.dp)) {
+        FilledTonalIconButton(
+            onClick = onIncrease,
+            enabled = canIncrease,
+            modifier = Modifier.size(48.dp).semantics { contentDescription = increase },
+        ) {
             Text("+", style = MaterialTheme.typography.headlineSmall)
         }
     }
