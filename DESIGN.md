@@ -196,7 +196,7 @@ gap = clamp( minGap, sample(distribution, mean), maxGap )
 | Distribution   | Feel                                                         |
 |----------------|--------------------------------------------------------------|
 | Exponential    | Truly unpredictable (Poisson process). Some calls come in bursts, some long gaps. **Default.** |
-| Uniform        | Evenly spread between min and max.                            |
+| Uniform        | Evenly spread around the mean, as wide as min and max allow (e.g. mean 4 s, min 2 s → 2–6 s). |
 | Normal         | Mostly near the mean, with set spread (std-dev).              |
 | Fixed          | Metronome. Good for drilling pace.                            |
 
