@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.nickorton.sholto.R
+import com.nickorton.sholto.engine.Combo
 import com.nickorton.sholto.engine.Phase
 import com.nickorton.sholto.engine.Punch
 import com.nickorton.sholto.engine.Stance
@@ -192,7 +193,7 @@ private fun CombinedScreenWorkPreview() {
             state =
                 CombinedUiState.Running(
                     timer = TimerUiState.Running(Phase.Work, 3, 6, 95_000L, 0.4f, 30_000L, isPaused = false),
-                    currentCall = Punch.ThreeBody,
+                    currentCall = Combo.of(Punch.ThreeBody),
                     stance = Stance.Orthodox,
                     callCount = 42,
                     callAgeMs = 200L,
@@ -212,7 +213,7 @@ private fun CombinedScreenWarningLandscapePreview() {
             state =
                 CombinedUiState.Running(
                     timer = TimerUiState.Running(Phase.Warning, 3, null, 21_000L, 0.9f, 30_000L, isPaused = false),
-                    currentCall = Punch.Two,
+                    currentCall = Combo.of(Punch.One, Punch.Two),
                     stance = Stance.Orthodox,
                     callCount = 57,
                     callAgeMs = 600L,

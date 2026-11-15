@@ -3,7 +3,7 @@ package com.nickorton.sholto.ui.combined
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nickorton.sholto.data.CombinedSettings
-import com.nickorton.sholto.engine.Punch
+import com.nickorton.sholto.engine.Combo
 import com.nickorton.sholto.engine.Stance
 import com.nickorton.sholto.service.CombinedController
 import com.nickorton.sholto.ui.timer.TimerUiState
@@ -35,7 +35,7 @@ sealed interface CombinedUiState {
      */
     data class Running(
         val timer: TimerUiState.Running,
-        val currentCall: Punch?,
+        val currentCall: Combo?,
         val stance: Stance,
         val callCount: Int,
         val callAgeMs: Long,

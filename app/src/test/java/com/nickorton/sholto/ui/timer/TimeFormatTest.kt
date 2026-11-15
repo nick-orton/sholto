@@ -1,6 +1,7 @@
 package com.nickorton.sholto.ui.timer
 
 import com.nickorton.sholto.data.CallerSettings
+import com.nickorton.sholto.engine.Combo
 import com.nickorton.sholto.engine.Phase
 import com.nickorton.sholto.engine.Punch
 import com.nickorton.sholto.engine.PunchConfig
@@ -111,7 +112,7 @@ class TimeFormatTest {
 
         val running =
             CallerUiState.Running(
-                currentCall = Punch.One,
+                currentCall = Combo.of(Punch.One),
                 stance = Stance.Orthodox,
                 callCount = 7,
                 callAgeMs = 100L,

@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nickorton.sholto.R
+import com.nickorton.sholto.engine.Combo
 import com.nickorton.sholto.engine.Punch
 import com.nickorton.sholto.engine.Stance
 import com.nickorton.sholto.ui.theme.ChromeBackground
@@ -334,7 +335,7 @@ private fun CallerScreenPreview() {
         CallerScreen(
             state =
                 CallerUiState.Running(
-                    currentCall = Punch.ThreeBody,
+                    currentCall = Combo.of(Punch.One, Punch.Two, Punch.ThreeBody),
                     stance = Stance.Orthodox,
                     callCount = 14,
                     callAgeMs = 100L,

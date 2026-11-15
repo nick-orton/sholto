@@ -89,7 +89,28 @@
 
     <string name="section_punches">Punch pool</string>
     <string name="avoid_repeats">Avoid repeats</string>
-    <string name="avoid_repeats_summary">Never call the same punch twice in a row</string>
+    <string name="avoid_repeats_summary">Never give the same call twice in a row</string>
+    <string name="weight">Weight</string>
+    <string name="weight_of">Weight of %1$s</string>
+
+    <string name="gap_preview">Gap preview</string>
+    <string name="gap_preview_summary">Most gaps %1$s to %2$s, average %3$s</string>
+
+    <string name="section_combos">Combos</string>
+    <string name="combos">Call combos</string>
+    <string name="combos_summary">Calls can be several punches, e.g. 1 · 2 · 3B</string>
+    <string name="max_combo_length">Longest combo</string>
+    <string name="combo_lengths">Combo lengths</string>
+    <string name="combo_lengths_summary">How often each length is called, by weight</string>
+    <plurals name="combo_length">
+        <item quantity="one">%1$d punch</item>
+        <item quantity="other">%1$d punches</item>
+    </plurals>
+    <string name="percent_of_calls">%1$d%% of calls</string>
+    <string name="natural_combos">Natural combos only</string>
+    <string name="natural_combos_summary">Alternate lead and rear hands, as combos are thrown</string>
+    <string name="allow_doubling">Allow doubling up</string>
+    <string name="allow_doubling_summary">The lead hand can throw twice in a row, e.g. 1 · 1 · 2 or 1 · 3</string>
 
     <string name="section_voice">Voice &amp; stance</string>
     <string name="stance">Stance</string>

@@ -6,8 +6,8 @@ import com.nickorton.sholto.audio.CallAnnouncer
 import com.nickorton.sholto.audio.CuePlayer
 import com.nickorton.sholto.data.CallerSettings
 import com.nickorton.sholto.engine.Clock
+import com.nickorton.sholto.engine.Combo
 import com.nickorton.sholto.engine.ElapsedRealtimeClock
-import com.nickorton.sholto.engine.Punch
 import com.nickorton.sholto.engine.Stance
 import com.nickorton.sholto.service.CallerController
 import com.nickorton.sholto.service.CallerSession
@@ -42,7 +42,7 @@ sealed interface CallerUiState {
      * @property timeLeftMs Time left when the session has a fixed length, or null.
      */
     data class Running(
-        val currentCall: Punch?,
+        val currentCall: Combo?,
         val stance: Stance,
         val callCount: Int,
         val callAgeMs: Long,

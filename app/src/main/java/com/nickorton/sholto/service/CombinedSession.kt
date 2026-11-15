@@ -6,12 +6,14 @@ import com.nickorton.sholto.audio.CuePlayer
 import com.nickorton.sholto.data.CombinedSettings
 import com.nickorton.sholto.data.TimerSettings
 import com.nickorton.sholto.engine.CallScheduler
+import com.nickorton.sholto.engine.CallTiming
 import com.nickorton.sholto.engine.Clock
+import com.nickorton.sholto.engine.Combo
 import com.nickorton.sholto.engine.ElapsedRealtimeClock
-import com.nickorton.sholto.engine.Punch
 import com.nickorton.sholto.engine.PunchEngine
 import com.nickorton.sholto.engine.RoundEngine
 import com.nickorton.sholto.engine.RoundState
+import com.nickorton.sholto.engine.ScheduledCall
 import com.nickorton.sholto.engine.SessionStatus
 import com.nickorton.sholto.ui.combined.CombinedUiState
 import kotlinx.coroutines.CoroutineScope
@@ -54,8 +56,8 @@ interface CombinedController {
  * - calls happen only in Work and Warning, and stop for Rest;
  * - pausing freezes the timer and the calls together, and resuming shifts
  *   both by exactly the pause;
- * - no call is placed within [CallScheduler.BELL_GUARD_MS] of a phase change,
- *   so a call never talks over a bell or the warning clacks.
+ * - no call is spoken within [CallScheduler.BELL_GUARD_MS] of a phase
+ *   change, so a call never talks over a bell or the warning clacks.
  *
  * The ticker wakes at every whole second of the countdown (for bells and
  * beeps) and at the exact time of the next call. A call found more than
@@ -90,14 +92,13 @@ class CombinedSession(
     private var sessionPlayer = CuePlayer.None
     private var engine: RoundEngine? = null
     private var planner = CuePlanner()
-    private var punches: PunchEngine? = null
     private var scheduler: CallScheduler? = null
     private var ticker: Job? = null
     private var wasInCall = false
 
-    /** When the next call is due, in active session time, or null for none. */
-    private var nextCallAtMs: Long? = null
-    private var currentCall: Punch? = null
+    /** The next call, due in active session time, or null for none. */
+    private var nextCall: ScheduledCall? = null
+    private var currentCall: Combo? = null
     private var lastCallAtMs = 0L
     private var callCount = 0
     private var phaseTimeLeftMs = 0L
@@ -125,11 +126,16 @@ class CombinedSession(
         session = s
         sessionPlayer = playerFor(s.timer)
         wasInCall = isInCall()
-        val newPunches = PunchEngine(s.caller.punch, randomFactory())
-        val newScheduler = CallScheduler(s.timer.round, newPunches, s.finalPush.meanFactor)
-        punches = newPunches
+        val c = s.caller
+        val newScheduler =
+            CallScheduler(
+                config = s.timer.round,
+                punches = PunchEngine(c.punch, randomFactory()),
+                finalPushFactor = s.finalPush.meanFactor,
+                speechMs = { CallTiming.speechMs(it.spokenText(c.calloutStyle, c.stance), c.speechRate) },
+            )
         scheduler = newScheduler
-        nextCallAtMs = newScheduler.firstCallAt()
+        nextCall = newScheduler.firstCall()
         currentCall = null
         lastCallAtMs = 0L
         callCount = 0
@@ -210,7 +216,7 @@ class CombinedSession(
     private fun nextTickDelayMs(): Long {
         val left = phaseTimeLeftMs
         val untilSecond = if (left <= 0L) tickMs else (left - 1L) % 1000L + 1L
-        val untilCall = nextCallAtMs?.let { (it - elapsedMs).coerceAtLeast(1L) } ?: Long.MAX_VALUE
+        val untilCall = nextCall?.let { (it.atMs - elapsedMs).coerceAtLeast(1L) } ?: Long.MAX_VALUE
         return minOf(tickMs, untilSecond, untilCall)
     }
 
@@ -240,21 +246,19 @@ class CombinedSession(
      * Makes every call due by [elapsed] and returns the one to speak, if any.
      * Calls more than [lateCallToleranceMs] late are skipped.
      */
-    private fun takeDueCall(elapsed: Long): Punch? {
-        val punches = punches ?: return null
+    private fun takeDueCall(elapsed: Long): Combo? {
         val scheduler = scheduler ?: return null
-        var toSpeak: Punch? = null
+        var toSpeak: Combo? = null
         while (true) {
-            val due = nextCallAtMs ?: break
-            if (due > elapsed) break
-            if (elapsed - due <= lateCallToleranceMs) {
-                val punch = punches.nextCall()
-                currentCall = punch
-                lastCallAtMs = due
+            val due = nextCall ?: break
+            if (due.atMs > elapsed) break
+            if (elapsed - due.atMs <= lateCallToleranceMs) {
+                currentCall = due.combo
+                lastCallAtMs = due.atMs
                 callCount++
-                toSpeak = punch
+                toSpeak = due.combo
             }
-            nextCallAtMs = scheduler.nextCallAfter(due)
+            nextCall = scheduler.nextCallAfter(due)
         }
         return toSpeak
     }

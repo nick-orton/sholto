@@ -10,18 +10,18 @@ import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import com.nickorton.sholto.engine.CalloutStyle
-import com.nickorton.sholto.engine.Punch
+import com.nickorton.sholto.engine.Combo
 import com.nickorton.sholto.engine.Stance
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Speaks punch calls aloud. [TtsAnnouncer] uses Android's [TextToSpeech];
+ * Speaks punch calls and combos aloud. [TtsAnnouncer] uses Android's [TextToSpeech];
  * unit tests use [None] or a recording implementation.
  */
 fun interface CallAnnouncer {
     fun announce(
-        punch: Punch,
+        call: Combo,
         style: CalloutStyle,
         stance: Stance,
         speechRate: Float,
@@ -107,7 +107,7 @@ class TtsAnnouncer(
     }
 
     override fun announce(
-        punch: Punch,
+        call: Combo,
         style: CalloutStyle,
         stance: Stance,
         speechRate: Float,
@@ -128,7 +128,7 @@ class TtsAnnouncer(
         handler.removeCallbacks(releaseFocusFallback)
         handler.postAtTime(releaseFocusFallback, SystemClock.uptimeMillis() + FOCUS_TIMEOUT_MS)
 
-        val spoken = punch.spokenText(style, stance)
+        val spoken = call.spokenText(style, stance)
         val result = tts.speak(spoken, TextToSpeech.QUEUE_FLUSH, null, id)
         if (result == TextToSpeech.ERROR) {
             onUtteranceFinished(id)
