@@ -161,7 +161,7 @@ fun CombinedScreen(
     }
 }
 
-/** The current call, fading over a second; a dim dash before the first one. */
+/** The current call, fading over a second. */
 @Composable
 private fun Call(
     state: CombinedUiState.Running,
@@ -169,10 +169,15 @@ private fun Call(
     modifier: Modifier,
 ) {
     val call = state.currentCall
+    if (call == null) {
+        // Empty until the round's first call: the bell has just rung.
+        Box(modifier)
+        return
+    }
     CallDisplay(
-        text = call?.label ?: "—",
-        subtitle = call?.fullName(state.stance),
-        color = style.content.copy(alpha = if (call != null) callAlpha(state.callAgeMs) else 0.4f),
+        text = call.label,
+        subtitle = call.fullName(state.stance),
+        color = style.content.copy(alpha = callAlpha(state.callAgeMs)),
         modifier = modifier,
     )
 }
