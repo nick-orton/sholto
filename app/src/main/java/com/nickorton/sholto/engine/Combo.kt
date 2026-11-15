@@ -94,3 +94,20 @@ object CallTiming {
         speechMs: Long,
     ): Long = if (combo.size > 1) speechMs + THROW_MS_PER_PUNCH * combo.size else 0L
 }
+
+/** Who says the calls (DESIGN.md §3.5). */
+enum class Voice {
+    /** The phone's text-to-speech engine. Works for any call. */
+    SystemTts,
+
+    /** Recorded clips stitched together: faster to start, more natural. */
+    Bundled,
+}
+
+/** How calls are said: everything the announcer needs besides the call itself. */
+data class Callout(
+    val style: CalloutStyle = CalloutStyle.Numbers,
+    val stance: Stance = Stance.Orthodox,
+    val speechRate: Float = 1.2f,
+    val voice: Voice = Voice.SystemTts,
+)

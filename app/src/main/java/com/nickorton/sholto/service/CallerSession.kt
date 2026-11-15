@@ -196,13 +196,13 @@ class CallerSession(
                 callCount++
                 lastCallElapsedMs = nextCallAtElapsedMs
                 // A combo has to be said and thrown before the wait starts.
-                val speech = CallTiming.speechMs(call.spokenText(session.calloutStyle, session.stance), session.speechRate)
+                val speech = announcer.speechMs(call, session.callout)
                 nextCallAtElapsedMs += CallTiming.busyMs(call, speech) + activeEngine.nextGap()
             }
         }
 
         if (newestCall != null) {
-            announcer.announce(newestCall, session.calloutStyle, session.stance, session.speechRate)
+            announcer.announce(newestCall, session.callout)
         }
 
         if (finished) {

@@ -7,6 +7,7 @@ import com.nickorton.sholto.engine.GapDistribution
 import com.nickorton.sholto.engine.Punch
 import com.nickorton.sholto.engine.RoundConfig
 import com.nickorton.sholto.engine.Stance
+import com.nickorton.sholto.engine.Voice
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -215,6 +216,7 @@ class SettingsRepositoryTest {
                     .withComboLengthWeight(5, 20)
                     .withNaturalOnly(true)
                     .withDoubling(true)
+                    .withVoice(Voice.Bundled)
             }
             scope1.cancel()
 
@@ -229,6 +231,7 @@ class SettingsRepositoryTest {
             assertEquals(listOf(50, 30, 15, 5, 20, 2), p.comboLengthWeights)
             assertEquals(true, p.naturalOnly)
             assertEquals(true, p.allowDoubling)
+            assertEquals(Voice.Bundled, repo2.callerSettings.first().voice)
             scope2.cancel()
         }
 }
