@@ -59,4 +59,28 @@ class TimeFormatTest {
         assertEquals("NEXT: ROUND 4 / 6", roundLabel(Phase.Rest, 3, 6))
         assertEquals("NEXT: ROUND 2", roundLabel(Phase.Rest, 1, null))
     }
+
+    @Test
+    fun `notification title and text show phase, countdown, round and paused state`() {
+        val work =
+            TimerUiState.Running(
+                phase = Phase.Work,
+                round = 3,
+                totalRounds = 12,
+                phaseTimeLeftMs = 135_000L,
+                roundProgress = 0.25f,
+                warningLengthMs = 30_000L,
+                isPaused = false,
+            )
+        assertEquals("WORK · 2:15", notificationTitle(work))
+        assertEquals("ROUND 3 / 12", notificationText(work))
+
+        val paused = work.copy(isPaused = true)
+        assertEquals("PAUSED · 2:15", notificationTitle(paused))
+        assertEquals("WORK · ROUND 3 / 12", notificationText(paused))
+
+        val rest = work.copy(phase = Phase.Rest, phaseTimeLeftMs = 45_000L)
+        assertEquals("REST · 0:45", notificationTitle(rest))
+        assertEquals("NEXT: ROUND 4 / 12", notificationText(rest))
+    }
 }

@@ -103,4 +103,12 @@ class SoundPlayer(
         handler.removeCallbacks(releaseFocus)
         handler.postAtTime(releaseFocus, releaseFocusAtMs)
     }
+
+    /** Frees the loaded samples and gives back audio focus. */
+    fun release() {
+        handler.removeCallbacks(releaseFocus)
+        audioManager.abandonAudioFocusRequest(focusRequest)
+        loaded.clear()
+        soundPool.release()
+    }
 }

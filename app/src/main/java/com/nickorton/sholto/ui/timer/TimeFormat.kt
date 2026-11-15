@@ -46,6 +46,23 @@ fun roundLabel(
     return if (phase == Phase.Rest) "NEXT: $counter" else counter
 }
 
+/**
+ * The ongoing notification title, e.g. `WORK · 2:15` or `PAUSED · 2:15`.
+ */
+fun notificationTitle(state: TimerUiState.Running): String {
+    val head = if (state.isPaused) "PAUSED" else phaseLabel(state.phase, state.warningLengthMs)
+    return "$head · ${formatCountdown(state.phaseTimeLeftMs)}"
+}
+
+/**
+ * The ongoing notification subtitle, e.g. `ROUND 3 / 6` or
+ * `WORK · ROUND 3 / 6` when paused.
+ */
+fun notificationText(state: TimerUiState.Running): String {
+    val round = roundLabel(state.phase, state.round, state.totalRounds)
+    return if (state.isPaused) "${phaseLabel(state.phase, state.warningLengthMs)} · $round" else round
+}
+
 private fun warningLabel(warningLengthMs: Long): String {
     val seconds = warningLengthMs / 1000L
     return when {

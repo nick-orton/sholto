@@ -325,6 +325,12 @@ unit-tested on the JVM with a fake clock and seeded RNG.
 - Exact timing in the background relies on the foreground service and a
   coroutine scheduler. It does not use `AlarmManager`, which is too coarse
   for sub-second cues.
+- Swiping the app away from Recents leaves a running or paused session alive
+  in the foreground service, controlled from the notification; tapping the
+  notification reattaches the UI.
+- When a phone or VoIP call comes in (`AudioManager` mode `MODE_RINGTONE`,
+  `MODE_IN_CALL`, or `MODE_IN_COMMUNICATION`), a running session pauses
+  automatically and stays paused until you resume it.
 
 ### 5.5 Visual design
 - Phase colors are chosen for contrast and colorblind safety. Each phase
