@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A boxing bell: crown, flared body and clapper, inside the 66dp safe zone
+     of the 108dp adaptive-icon canvas. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Crown -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,27.5a4,4 0,1 1,0 8a4,4 0,1 1,0 -8z" />
+    <!-- Body -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,33.5C43.5,33.5 37.5,41.5 37.5,52.5L37.5,62L32,70.5L76,70.5L70.5,62L70.5,52.5C70.5,41.5 64.5,33.5 54,33.5Z" />
+    <!-- Clapper -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,72a5,5 0,1 1,0 10a5,5 0,1 1,0 -10z" />
+    <!-- Shine -->
+    <path
+        android:fillColor="#00796B"
+        android:pathData="M45,52.5C45,45.5 48.5,41 53,40.2L53,43C50,44 48,47.5 48,52.5L48,60L45,60Z" />
+</vector>
