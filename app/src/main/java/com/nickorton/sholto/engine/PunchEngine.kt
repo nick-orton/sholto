@@ -25,9 +25,19 @@ class PunchEngine(
     private val pool = config.pool
     private var lastCall: Punch? = null
 
-    /** The wait before the next call, in ms, within [PunchConfig.minGapMs]..[PunchConfig.maxGapMs]. */
-    fun nextGap(): Long {
-        val mean = config.meanGapMs.toDouble()
+    /**
+     * The wait before the next call, in ms, within
+     * [PunchConfig.minGapMs]..[PunchConfig.maxGapMs].
+     *
+     * @param meanFactor Multiplies the mean gap, e.g. 0.6 for the faster
+     *   "final push" in combined mode. The scaled mean is kept within min and
+     *   max, so the min gap still guarantees time to react.
+     */
+    fun nextGap(meanFactor: Double = 1.0): Long {
+        require(meanFactor > 0.0) { "meanFactor must be positive, was $meanFactor" }
+        val minMs = config.minGapMs.toDouble()
+        val maxMs = config.maxGapMs.toDouble()
+        val mean = (config.meanGapMs * meanFactor).coerceIn(minMs, maxMs)
         val sample =
             when (config.distribution) {
                 // 1 - nextDouble() is in (0, 1], so the log is always finite.
@@ -37,7 +47,7 @@ class PunchEngine(
 
                 GapDistribution.Uniform -> {
                     // Symmetric around the mean, so the mean holds exactly.
-                    val halfWidth = min(config.meanGapMs - config.minGapMs, config.maxGapMs - config.meanGapMs).toDouble()
+                    val halfWidth = min(mean - minMs, maxMs - mean)
                     mean - halfWidth + 2.0 * halfWidth * random.nextDouble()
                 }
 
@@ -49,7 +59,7 @@ class PunchEngine(
                     mean
                 }
             }
-        return sample.coerceIn(config.minGapMs.toDouble(), config.maxGapMs.toDouble()).roundToLong()
+        return sample.coerceIn(minMs, maxMs).roundToLong()
     }
 
     /**
