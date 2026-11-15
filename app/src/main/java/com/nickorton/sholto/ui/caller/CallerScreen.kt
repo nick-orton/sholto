@@ -180,7 +180,7 @@ private fun CallerHeader(state: CallerUiState.Running) {
 }
 
 @Composable
-private fun CallDisplay(
+internal fun CallDisplay(
     text: String,
     subtitle: String?,
     color: Color,

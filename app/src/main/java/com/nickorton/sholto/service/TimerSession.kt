@@ -204,17 +204,21 @@ class TimerSession(
             }
 
             SessionStatus.Idle, SessionStatus.Running, SessionStatus.Paused -> {
-                TimerUiState.Running(
-                    phase = phase,
-                    round = round,
-                    totalRounds = totalRounds,
-                    phaseTimeLeftMs = phaseTimeLeftMs,
-                    roundProgress = roundProgress,
-                    warningLengthMs = session.round.warningLengthMs,
-                    isPaused = status == SessionStatus.Paused,
-                    keepScreenOn = session.keepScreenOn,
-                    tapEnds = session.tapBehavior == TapBehavior.Stop,
-                )
+                toRunningUiState(session)
             }
         }
 }
+
+/** The running timer screen's state for this reading, with [settings]' display options. */
+internal fun RoundState.toRunningUiState(settings: TimerSettings): TimerUiState.Running =
+    TimerUiState.Running(
+        phase = phase,
+        round = round,
+        totalRounds = totalRounds,
+        phaseTimeLeftMs = phaseTimeLeftMs,
+        roundProgress = roundProgress,
+        warningLengthMs = settings.round.warningLengthMs,
+        isPaused = status == SessionStatus.Paused,
+        keepScreenOn = settings.keepScreenOn,
+        tapEnds = settings.tapBehavior == TapBehavior.Stop,
+    )

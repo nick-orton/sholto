@@ -123,7 +123,7 @@ fun TimerScreen(
 }
 
 @Composable
-private fun PhaseHeader(
+internal fun PhaseHeader(
     state: TimerUiState.Running,
     style: PhaseStyle,
 ) {
@@ -149,7 +149,7 @@ private fun PhaseHeader(
 
 /** The countdown, as large as fits: about 40% of the screen height in portrait. */
 @Composable
-private fun Countdown(
+internal fun Countdown(
     text: String,
     color: Color,
     modifier: Modifier = Modifier,
@@ -173,7 +173,7 @@ private fun Countdown(
 }
 
 @Composable
-private fun ProgressBar(
+internal fun ProgressBar(
     progress: Float,
     color: Color,
 ) {
@@ -195,7 +195,7 @@ private fun ProgressBar(
 
 /** Big Resume and End buttons, laid out side by side in landscape. */
 @Composable
-private fun PausedOverlay(
+internal fun PausedOverlay(
     onResume: () -> Unit,
     onEnd: () -> Unit,
 ) {
@@ -242,7 +242,7 @@ private fun PausedOverlay(
 
 /** Keeps the display on while this is on screen. */
 @Composable
-private fun KeepScreenOn() {
+internal fun KeepScreenOn() {
     val view = LocalView.current
     DisposableEffect(view) {
         view.keepScreenOn = true
@@ -255,7 +255,7 @@ private fun KeepScreenOn() {
  * sized to fill the display, so scaling it would only make text overflow.
  */
 @Composable
-private fun fixedSp(size: Dp) = with(LocalDensity.current) { size.toSp() }
+internal fun fixedSp(size: Dp) = with(LocalDensity.current) { size.toSp() }
 
 @Preview(widthDp = 360, heightDp = 760)
 @Composable

@@ -26,13 +26,18 @@ import androidx.compose.ui.unit.sp
 import com.nickorton.sholto.R
 import com.nickorton.sholto.ui.theme.SholtoTheme
 
-/** The session summary, with Again and Home. */
+/**
+ * The session summary, with Again and Home.
+ *
+ * @param callsMade Shown for combined sessions; null hides it.
+ */
 @Composable
 fun DoneScreen(
     state: TimerUiState.Done,
     onAgain: () -> Unit,
     onHome: () -> Unit,
     modifier: Modifier = Modifier,
+    callsMade: Int? = null,
 ) {
     Surface(modifier = modifier.fillMaxSize()) {
         Column(
@@ -51,6 +56,7 @@ fun DoneScreen(
                 fontWeight = FontWeight.Black,
             )
             Stat(stringResource(R.string.rounds_completed), state.roundsCompleted.toString())
+            if (callsMade != null) Stat(stringResource(R.string.calls_made), callsMade.toString())
             Stat(stringResource(R.string.total_time), formatDuration(state.totalTimeMs))
             Button(
                 onClick = onAgain,

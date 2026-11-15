@@ -10,8 +10,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Binds to [WorkoutService] and exposes its [WorkoutController] and
- * [CallerController] as [StateFlow]s. Used by the ViewModels so the connection
+ * Binds to [WorkoutService] and exposes its [WorkoutController],
+ * [CallerController] and [CombinedController] as [StateFlow]s. Used by the ViewModels so the connection
  * survives screen rotation and unbinds cleanly when the UI is closed.
  */
 class WorkoutServiceConnection(
@@ -24,6 +24,9 @@ class WorkoutServiceConnection(
     private val _callerController = MutableStateFlow<CallerController?>(null)
     val callerController: StateFlow<CallerController?> = _callerController.asStateFlow()
 
+    private val _combinedController = MutableStateFlow<CombinedController?>(null)
+    val combinedController: StateFlow<CombinedController?> = _combinedController.asStateFlow()
+
     private var bound = false
 
     private val connection =
@@ -35,11 +38,13 @@ class WorkoutServiceConnection(
                 val binder = service as? WorkoutService.LocalBinder ?: return
                 _controller.value = binder.service
                 _callerController.value = binder.service.callerController
+                _combinedController.value = binder.service.combinedController
             }
 
             override fun onServiceDisconnected(name: ComponentName?) {
                 _controller.value = null
                 _callerController.value = null
+                _combinedController.value = null
             }
         }
 
@@ -58,6 +63,7 @@ class WorkoutServiceConnection(
         bound = false
         _controller.value = null
         _callerController.value = null
+        _combinedController.value = null
         runCatching { appContext.unbindService(connection) }
     }
 }

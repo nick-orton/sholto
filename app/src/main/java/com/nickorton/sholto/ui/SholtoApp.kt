@@ -27,6 +27,9 @@ import com.nickorton.sholto.ui.caller.CallerDoneScreen
 import com.nickorton.sholto.ui.caller.CallerScreen
 import com.nickorton.sholto.ui.caller.CallerUiState
 import com.nickorton.sholto.ui.caller.CallerViewModel
+import com.nickorton.sholto.ui.combined.CombinedScreen
+import com.nickorton.sholto.ui.combined.CombinedUiState
+import com.nickorton.sholto.ui.combined.CombinedViewModel
 import com.nickorton.sholto.ui.home.HomeScreen
 import com.nickorton.sholto.ui.home.WorkoutMode
 import com.nickorton.sholto.ui.settings.SettingsScreen
@@ -36,12 +39,13 @@ import com.nickorton.sholto.ui.timer.TimerScreen
 import com.nickorton.sholto.ui.timer.TimerUiState
 import com.nickorton.sholto.ui.timer.TimerViewModel
 import com.nickorton.sholto.ui.timer.formatCallerSummary
+import com.nickorton.sholto.ui.timer.formatCombinedSummary
 import com.nickorton.sholto.ui.timer.formatSummary
 
 /**
- * The app's top level. While a timer or punch-caller session is running or on
- * its summary screen, that screen takes over; otherwise Home and Settings let
- * the user pick between Timer and Punch Caller modes.
+ * The app's top level. While a session of any mode is running or on its
+ * summary screen, that screen takes over; otherwise Home and Settings let the
+ * user pick between Timer, Punch Caller and Combined modes.
  */
 @Composable
 fun SholtoApp(
@@ -63,6 +67,15 @@ fun SholtoApp(
                 onClose = connection::unbind,
             )
         },
+    combinedViewModel: CombinedViewModel =
+        viewModel {
+            val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as SholtoApplication
+            val connection = WorkoutServiceConnection(app).also { it.bind() }
+            CombinedViewModel(
+                controllers = connection.combinedController,
+                onClose = connection::unbind,
+            )
+        },
     settingsViewModel: SettingsViewModel =
         viewModel {
             val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as SholtoApplication
@@ -71,12 +84,14 @@ fun SholtoApp(
 ) {
     val timerState by timerViewModel.uiState.collectAsStateWithLifecycle()
     val callerState by callerViewModel.uiState.collectAsStateWithLifecycle()
+    val combinedState by combinedViewModel.uiState.collectAsStateWithLifecycle()
     val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
     var mode by rememberSaveable { mutableStateOf(WorkoutMode.Timer) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
 
     val tState = timerState
     val cState = callerState
+    val kState = combinedState
     when {
         tState is TimerUiState.Running -> {
             // Back pauses first, so it can't end a session by accident.
@@ -109,7 +124,27 @@ fun SholtoApp(
             CallerDoneScreen(state = cState, onAgain = callerViewModel::start, onHome = callerViewModel::home)
         }
 
-        tState is TimerUiState.Idle && cState is CallerUiState.Idle -> {
+        kState is CombinedUiState.Running -> {
+            BackHandler { if (kState.isPaused) combinedViewModel.end() else combinedViewModel.pause() }
+            CombinedScreen(
+                state = kState,
+                onPause = combinedViewModel::pause,
+                onResume = combinedViewModel::resume,
+                onEnd = combinedViewModel::end,
+            )
+        }
+
+        kState is CombinedUiState.Done -> {
+            BackHandler(onBack = combinedViewModel::home)
+            DoneScreen(
+                state = TimerUiState.Done(kState.roundsCompleted, kState.totalTimeMs, kState.finished),
+                onAgain = combinedViewModel::start,
+                onHome = combinedViewModel::home,
+                callsMade = kState.callsMade,
+            )
+        }
+
+        tState is TimerUiState.Idle && cState is CallerUiState.Idle && kState is CombinedUiState.Idle -> {
             RequestNotificationPermission()
             val currentSettings = settingsState
             if (showSettings && currentSettings != null) {
@@ -126,6 +161,8 @@ fun SholtoApp(
                     initialMode = mode,
                     onUpdateCaller = settingsViewModel::updateCaller,
                     onApplyCallerPreset = settingsViewModel::applyCallerPreset,
+                    onUpdateFinalPush = settingsViewModel::updateFinalPush,
+                    onApplyCombinedPreset = settingsViewModel::applyCombinedPreset,
                 )
             } else {
                 when (mode) {
@@ -145,6 +182,17 @@ fun SholtoApp(
                             presetName = currentSettings?.activeCallerPresetName ?: Presets.CUSTOM_NAME,
                             summary = formatCallerSummary(cState.settings),
                             onStart = callerViewModel::start,
+                            onSettings = { showSettings = true },
+                            mode = mode,
+                            onModeChange = { mode = it },
+                        )
+                    }
+
+                    WorkoutMode.Combined -> {
+                        HomeScreen(
+                            presetName = currentSettings?.combinedName ?: Presets.CUSTOM_NAME,
+                            summary = formatCombinedSummary(kState.settings),
+                            onStart = combinedViewModel::start,
                             onSettings = { showSettings = true },
                             mode = mode,
                             onModeChange = { mode = it },
