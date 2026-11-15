@@ -357,10 +357,15 @@ unit-tested on the JVM with a fake clock and seeded RNG.
 ### 5.5 Visual design
 - Phase colors are chosen for contrast and colorblind safety. Each phase
   also has a **pattern/icon and label**, so color is never the only signal:
-  - Green `#1B8E3E`: ▶ "WORK"
+  - Green `#00796B`: ▶ "WORK"
   - Yellow `#F2C200`: ⚠ "30 SEC" (with dark text)
-  - Red `#C62828`: ❚❚ "REST"
+  - Red `#D32F2F`: ❚❚ "REST"
   - Grey `#37474F`: "GET READY"
+- Colorblind check (M11): the first palette's green `#1B8E3E` and red
+  `#C62828` were almost the same under deuteranopia (OKLab ΔE 3.3). With the
+  green moved toward teal and the red brightened, every pair is at least
+  ΔE 10 under protan, deutan and tritan simulation (Machado 2009, severity
+  1.0). White text is 5.3:1 on green and 5.0:1 on red.
 - Countdown font: a heavy monospaced/tabular-figure face, so digits don't
   shift as they change.
 - Supports both orientations. Landscape is good for a phone propped on the
